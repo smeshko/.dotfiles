@@ -1,0 +1,10 @@
+# gitleaks config: default rules plus repo-specific false positives.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "VS Code keybinding chords look like generic API keys"
+condition = "AND"
+paths = ['''(^|/)vscode/keybindings\.json$''']
+regexTarget = "line"
+regexes = ['''^\s*"key":\s*"[a-z0-9+\-\[\]\\/;'.,`= ]+",?\s*$''']

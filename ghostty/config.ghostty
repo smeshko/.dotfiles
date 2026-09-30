@@ -1,0 +1,82 @@
+# Follow the macOS light/dark appearance automatically
+theme = dark:Catppuccin Frappe,light:Raycast Light
+
+# Add breathing room on the left and right edges
+window-padding-x = 12
+
+# Ghostty's own tab/surface chords (cmd+shift+w is the exception: herdr close space).
+keybind = cmd+shift+t=new_tab
+keybind = cmd+alt+w=close_surface
+keybind = cmd+alt+1=goto_tab:1
+keybind = cmd+alt+2=goto_tab:2
+keybind = cmd+alt+3=goto_tab:3
+keybind = cmd+alt+4=goto_tab:4
+keybind = cmd+alt+5=goto_tab:5
+keybind = cmd+alt+6=goto_tab:6
+keybind = cmd+alt+7=goto_tab:7
+keybind = cmd+alt+8=goto_tab:8
+keybind = cmd+alt+9=last_tab
+# physical digit keys too, so this survives keyboard-layout switches
+keybind = cmd+alt+digit_1=goto_tab:1
+keybind = cmd+alt+digit_2=goto_tab:2
+keybind = cmd+alt+digit_3=goto_tab:3
+keybind = cmd+alt+digit_4=goto_tab:4
+keybind = cmd+alt+digit_5=goto_tab:5
+keybind = cmd+alt+digit_6=goto_tab:6
+keybind = cmd+alt+digit_7=goto_tab:7
+keybind = cmd+alt+digit_8=goto_tab:8
+
+# Pass through to herdr: new tab (cmd+t), close pane/tab (cmd+w), rename tab
+# (alt+shift+r), splits (cmd+d / cmd+shift+d), goto (cmd+k, as a text macro, see below), lazygit
+# (cmd+shift+g), tabs (cmd+alt+left/right), spaces (cmd+alt+up/down),
+# close workspace (cmd+shift+w), switch tab 1-9 (cmd+1..9), equalize panes (cmd+ctrl+=),
+# cycle panes (cmd+[ / cmd+])
+keybind = alt+shift+r=unbind
+keybind = cmd+shift+w=unbind
+keybind = cmd+ctrl+==unbind
+keybind = cmd+d=unbind
+keybind = cmd+shift+d=unbind
+keybind = cmd+t=unbind
+keybind = cmd+w=unbind
+# cmd+k: instead of passing the chord through, send herdr the key sequence
+# prefix (§) + g (goto) + / (focus search) so the navigator opens with the
+# search box already focused. herdr 0.9.x has no config option for this.
+keybind = cmd+k=text:§g/
+keybind = cmd+shift+g=unbind
+keybind = cmd+[=unbind
+keybind = cmd+]=unbind
+keybind = cmd+alt+left=unbind
+keybind = cmd+alt+right=unbind
+keybind = cmd+alt+up=unbind
+keybind = cmd+alt+down=unbind
+keybind = cmd+1=unbind
+keybind = cmd+2=unbind
+keybind = cmd+3=unbind
+keybind = cmd+4=unbind
+keybind = cmd+5=unbind
+keybind = cmd+6=unbind
+keybind = cmd+7=unbind
+keybind = cmd+8=unbind
+keybind = cmd+9=unbind
+# Ghostty also binds the physical digit keys separately
+keybind = cmd+digit_1=unbind
+keybind = cmd+digit_2=unbind
+keybind = cmd+digit_3=unbind
+keybind = cmd+digit_4=unbind
+keybind = cmd+digit_5=unbind
+keybind = cmd+digit_6=unbind
+keybind = cmd+digit_7=unbind
+keybind = cmd+digit_8=unbind
+
+# Ghostty split navigation moved off cmd+[ / cmd+] (herdr uses those for panes).
+# This replaces the default previous_tab/next_tab on these chords; ctrl+tab / ctrl+shift+tab still switch tabs.
+keybind = cmd+shift+[=goto_split:previous
+keybind = cmd+shift+]=goto_split:next
+
+# Switch tabs with cmd+shift+left/right (no clash: herdr uses cmd+alt+arrows for this,
+# neovim has no D-S-Left/Right mapping, lazygit is intercepted below Ghostty level).
+keybind = cmd+shift+left=previous_tab
+keybind = cmd+shift+right=next_tab
+
+# Neovim (VS Code muscle memory): let cmd+shift+f through to nvim. Esc still ends a scrollback search.
+keybind = cmd+shift+f=unbind

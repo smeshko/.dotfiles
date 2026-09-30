@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+"""Equalize pane sizes in the active herdr tab (like Ghostty's equalize_splits).
+
+Walks the tab's BSP layout and sets every split ratio so that panes along each
+axis get equal share: a `right` split gets ratio = columns(first)/columns(total),
+a `down` split gets ratio = rows(first)/rows(total).
+
+Environment (all optional, herdr sets them for custom command keybindings):
+  HERDR_SOCKET_PATH   socket to talk to (default ~/.config/herdr/herdr.sock)
+  HERDR_ACTIVE_TAB_ID tab to equalize (default: the active tab)
+"""
+import json
+import os
+import socket
+import sys
+
+SOCK = os.environ.get("HERDR_SOCKET_PATH") or os.path.expanduser("~/.config/herdr/herdr.sock")
+TAB = os.environ.get("HERDR_ACTIVE_TAB_ID")
+# layout.set_split_ratio addresses a split by a path of booleans from the root:
+# false = descend into `first`, true = descend into `second`.
+
+
+def request(method, params):
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    s.settimeout(5)
+    s.connect(SOCK)
+    s.sendall((json.dumps({"id": "equalize", "method": method, "params": params}) + "\n").encode())
+    buf = b""
+    while b"\n" not in buf:
+        chunk = s.recv(65536)
+        if not chunk:
+            break
+        buf += chunk
+    s.close()
+    resp = json.loads(buf.decode().split("\n", 1)[0])
+    if "error" in resp:
+        raise RuntimeError(json.dumps(resp["error"]))
+    return resp["result"]
+
+
+def dims(node):
+    """(columns, rows) of leaf panes spanned by this subtree."""
+    if node["type"] != "split":
+        return 1, 1
+    fc, fr = dims(node["first"])
+    sc, sr = dims(node["second"])
+    if node["direction"] == "right":
+        return fc + sc, max(fr, sr)
+    return max(fc, sc), fr + sr
+
+
+def collect(node, path, out):
+    if node["type"] != "split":
+        return
+    fc, fr = dims(node["first"])
+    sc, sr = dims(node["second"])
+    if node["direction"] == "right":
+        ratio = fc / (fc + sc)
+    else:
+        ratio = fr / (fr + sr)
+    out.append((path, ratio))
+    collect(node["first"], path + [False], out)
+    collect(node["second"], path + [True], out)
+
+
+def main():
+    params = {"tab_id": TAB} if TAB else {}
+    layout = request("layout.export", params)["layout"]
+    tab_id = layout["tab_id"]
+    targets = []
+    collect(layout["root"], [], targets)
+    if not targets:
+        print("single pane, nothing to equalize")
+        return 0
+    for path, ratio in targets:
+        request("layout.set_split_ratio", {"tab_id": tab_id, "path": path, "ratio": round(ratio, 4)})
+    print(f"equalized {len(targets)} split(s) in {tab_id}")
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except Exception as exc:  # keep the popup/shell quiet but informative
+        print(f"herdr-equalize-panes: {exc}", file=sys.stderr)
+        sys.exit(1)

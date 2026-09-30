@@ -1,0 +1,69 @@
+{
+    "window.systemColorTheme": "auto",
+    "window.autoDetectColorScheme": true,
+    "workbench.startupEditor": "none",
+    "security.workspace.trust.untrustedFiles": "open",
+    "git.confirmSync": false,
+    "git.autofetch": true,
+    "explorer.confirmDragAndDrop": false,
+    "window.confirmSaveUntitledWorkspace": false,
+    "git.openRepositoryInParentFolders": "never",
+    "explorer.confirmDelete": false,
+    "security.promptForLocalFileProtocolHandling": false,
+    "diffEditor.renderSideBySide": true,
+    "gitlens.advanced.messages": {
+        "suppressCommitNotFoundWarning": true,
+        "suppressCreatePullRequestPrompt": true
+    },
+    "gitlens.views.commitDetails.files.layout": "tree",
+    "gitlens.statusBar.enabled": false,
+    "git.postCommitCommand": "push",
+    "extensions.ignoreRecommendations": true,
+    "[dockercompose]": {
+        "editor.insertSpaces": true,
+        "editor.tabSize": 2,
+        "editor.autoIndent": "advanced",
+        "editor.defaultFormatter": "redhat.vscode-yaml"
+    },
+    "[github-actions-workflow]": {
+        "editor.defaultFormatter": "redhat.vscode-yaml"
+    },
+    "workbench.editor.empty.hint": "hidden",
+    "github.copilot.chat.agent.currentEditorContext.enabled": false,
+    "window.openFoldersInNewWindow": "on",
+    "terminal.integrated.macOptionIsMeta": true,
+    "scm.repositories.selectionMode": "single",
+    "terminal.integrated.fontSize": 13,
+    "editor.accessibilitySupport": "off",
+    "diffEditor.ignoreTrimWhitespace": false,
+    "workbench.preferredDarkColorTheme": "Dark Modern",
+    "workbench.preferredLightColorTheme": "Light Modern",
+    "chat.agentSkillsLocations": {
+        "~/.claude/skills": false,
+        ".claude/skills": false
+    },
+    "chat.agentFilesLocations": {
+        ".claude/agents": false
+    },
+    "chat.instructionsFilesLocations": {
+        ".claude/rules": false,
+        "~/.claude/rules": false
+    },
+    "chat.useClaudeMdFile": false,
+    "chat.hookFilesLocations": {
+        "~/.claude/settings.json": false,
+        ".claude/settings.json": false,
+        ".claude/settings.local.json": false
+    },
+    "chat.useNestedAgentsMdFiles": true,
+    "chat.tools.terminal.autoApprove": {
+    
+    },
+    "explorer.confirmPasteNative": false,
+    "debug.onTaskErrors": "debugAnyway",
+    "json.schemaDownload.trustedDomains": {
+        "https://opencode.ai/config.json": true,
+        "https://models.dev/model-schema.json": true
+    },
+    "chat.viewSessions.orientation": "stacked"
+}

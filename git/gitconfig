@@ -1,0 +1,16 @@
+[user]
+	name = Ivo Tsonev
+	email = me@ivotsonev.com
+[push]
+	autoSetupRemote = true
+[pull]
+	rebase = false
+[filter "lfs"]
+	required = true
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+
+# Machine-specific overrides (untracked). Keep last so it wins.
+[include]
+	path = ~/.gitconfig.local

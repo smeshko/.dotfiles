@@ -1,0 +1,5 @@
+# Leak-guard allowlist. One extended regex per line.
+# A hit is reported as "path:line:content"; it is ignored if any regex below matches it.
+
+# LazyVim Dart language extra (the one allowed Dart/Flutter reference).
+^nvim/[^:]*:[0-9]+:.*lazyvim\.plugins\.extras\.lang\.dart

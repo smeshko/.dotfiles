@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# Open a git worktree in a new herdr tab inside that worktree's herdr workspace and run a command there.
+#
+# Usage: herdr-worktree-tab [--no-focus] [--run CMD] [--label LABEL] <worktree-path>
+#   --run CMD      command typed into the new tab's shell (default: "nvim .")
+#   --label LABEL  herdr tab label (default: first word of CMD)
+#   --no-focus     background/test mode: no focus change, lazygit popup left alone
+#
+# Called from lazygit's worktrees panel (customCommands in lazygit config.yml):
+#   e -> nvim, p -> pi. Prints {"workspace","pane"} on success.
+set -euo pipefail
+
+focus=--focus
+close_popup=1
+run="nvim ."
+label=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --no-focus) focus=--no-focus; close_popup=0; shift ;;
+    --run) run="$2"; shift 2 ;;
+    --label) label="$2"; shift 2 ;;
+    --) shift; break ;;
+    -*) echo "herdr-worktree-tab: unknown option $1" >&2; exit 2 ;;
+    *) break ;;
+  esac
+done
+path="${1:?usage: herdr-worktree-tab [--no-focus] [--run CMD] [--label LABEL] <worktree-path>}"
+path="$(cd "$path" && pwd -P)"
+[ -n "$label" ] || label="${run%% *}"
+
+[ "${HERDR_ENV:-}" = 1 ] || { echo "herdr-worktree-tab: not running inside herdr" >&2; exit 1; }
+
+# 1. herdr only opens worktrees from the repo's parent (main) checkout, so resolve that first.
+#    `worktree list` accepts a linked worktree as --cwd and reports the parent as source.
+src=$(herdr worktree list --cwd "$path" | jq -r '.result.source.source_checkout_path')
+[ -n "$src" ] && [ "$src" != null ] || { echo "herdr-worktree-tab: cannot resolve parent checkout for $path" >&2; exit 1; }
+
+# 2. Herdr workspace for this worktree: returns the open one, or opens it grouped with the parent.
+opened=$(herdr worktree open --cwd "$src" --path "$path" "$focus")
+ws=$(jq -r '.result.workspace.workspace_id' <<<"$opened")
+
+# 3. A freshly opened workspace already comes with an empty shell tab in the worktree root: reuse it.
+#    Otherwise add a new tab to the already-open workspace.
+if [ "$(jq -r '.result.already_open' <<<"$opened")" = false ]; then
+  pane=$(jq -r '.result.root_pane.pane_id' <<<"$opened")
+  herdr tab rename "$(jq -r '.result.tab.tab_id' <<<"$opened")" "$label" >/dev/null
+else
+  pane=$(herdr tab create --workspace "$ws" --cwd "$path" --label "$label" "$focus" | jq -r '.result.root_pane.pane_id')
+fi
+
+# 4. Run the command in that shell (so PATH, fnm, etc. come from the new shell, not from lazygit).
+herdr pane run "$pane" "$run" >/dev/null
+printf '{"workspace":"%s","pane":"%s"}\n' "$ws" "$pane"
+
+# 5. Dismiss the lazygit popup (server returns popup_not_open when there is none; ignored).
+if [ "$close_popup" = 1 ]; then
+  python3 - <<'PY' >/dev/null 2>&1 || true
+import json, os, socket
+s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+s.settimeout(3)
+s.connect(os.environ["HERDR_SOCKET_PATH"])
+s.sendall((json.dumps({"id": "lazygit-popup-close", "method": "popup.close", "params": {}}) + "\n").encode())
+s.recv(65536)
+PY
+fi

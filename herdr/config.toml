@@ -1,0 +1,84 @@
+onboarding = false
+
+# Follow Ghostty's light/dark appearance so text colors match the sidebar background.
+[theme]
+name = "catppuccin"
+auto_switch = true
+dark_name = "catppuccin"
+light_name = "catppuccin-latte"
+
+[theme.custom]
+red = "#4e82ef"     # blocked, needs input
+teal = "#4e82ef"    # done, not seen yet
+yellow = "#a78bfa"  # working
+
+# overlay0 is the colour of the second sidebar row (tab / branch subtitles).
+# Lifted to the theme's subtext colour so subtitles stay legible, incl. on the active row.
+[theme.custom.dark]
+active_row_bg = "#45475a"
+overlay0 = "#a6adc8"
+
+[theme.custom.light]
+active_row_bg = "#ccd0da"
+overlay0 = "#5c5f77"
+
+[ui]
+agent_panel_sort = "priority"
+prompt_new_tab_name = false
+status_indicators = "dots"
+copy_on_select = false
+
+[ui.sidebar.agents]
+row_gap = 1
+rows = [
+  ["state_icon", "workspace"],
+  [{ token = "tab", dim = false }],
+]
+
+[ui.sidebar.spaces]
+row_gap = 1
+rows = [
+  ["state_icon", "workspace"],
+  [{ token = "branch", dim = false }],
+]
+
+[ui.sound]
+enabled = false
+
+[keys]
+prefix = "§"
+new_tab = ["prefix+c", "cmd+t"]
+close_tab = "prefix+shift+x"
+close_pane = ["prefix+x", "cmd+w"]   # closes pane; last pane closes the tab; last tab closes the space
+goto = ["prefix+g", "cmd+k"]
+rename_tab = ["prefix+shift+t", "alt+shift+r"]
+previous_tab = ["prefix+p", "cmd+alt+left"]
+next_tab = ["prefix+n", "cmd+alt+right"]
+previous_workspace = "cmd+alt+up"
+next_workspace = "cmd+alt+down"
+new_workspace = "cmd+shift+n"
+close_workspace = ["prefix+shift+d", "cmd+shift+w"]
+previous_agent = "alt+shift+up"
+next_agent = "alt+shift+down"
+switch_tab = ["prefix+1..9", "cmd+1..9"]   # jump to tab N in the current space
+split_vertical = ["prefix+v", "cmd+d"]           # new pane to the right
+split_horizontal = ["prefix+minus", "cmd+shift+d"] # new pane below
+cycle_pane_next = ["prefix+tab", "alt+up", "cmd+]"]
+cycle_pane_previous = ["prefix+shift+tab", "alt+down", "cmd+["]
+
+# Lazygit over the focused pane. q closes it.
+[[keys.command]]
+key = ["cmd+shift+g", "prefix+d"]
+type = "popup"
+command = "cd \"${HERDR_ACTIVE_PANE_CWD:-.}\" && exec lazygit"
+description = "Git status"
+width = "90%"
+height = "85%"
+
+# Equalize all panes in the current tab (Ghostty-style equalize_splits).
+# Script: ~/.dotfiles/bin/herdr-equalize-panes (talks to the herdr socket API).
+[[keys.command]]
+key = "cmd+ctrl+="
+type = "shell"
+command = "\"$HOME/.dotfiles/bin/herdr-equalize-panes\""
+description = "Equalize panes"

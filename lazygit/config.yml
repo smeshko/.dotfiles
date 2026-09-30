@@ -1,0 +1,117 @@
+gui:
+  showCommandLog: false
+  showBottomLine: true
+  showPanelJumps: false
+  showRandomTip: false
+  showListFooter: false
+  showNumstatInFilesView: true
+  showFileTree: true
+  sidePanelWidth: 0.3
+  shrinkSidePanelsToContent: true
+  expandFocusedSidePanel: true
+  expandedSidePanelWeight: 8
+  splitDiff: auto
+  nerdFontsVersion: "3"
+  tabWidth: 4
+
+  # Narrow panes: file list on top, diff full width.
+  portraitMode: auto
+  portraitModeAutoMaxWidth: 110
+  portraitModeAutoMinHeight: 30
+
+  # Status, files (worktrees tab), branches (stash and commits tabs).
+  sidePanels:
+    - [status]
+    - [files, worktrees]
+    - [branches, stash, commits]
+
+  # One color per author. Agents commit on their own prefix.
+  branchColorPatterns:
+    "^me/": "#5fd7ff"
+    "^codex/": "#c678dd"
+    "^claude/": "#e5c07b"
+    "^grok/": "#00e5a8"
+    "^cursor/": "#61afef"
+    "^feat/": "#98c379"
+    "^fix/": "#e06c75"
+    "^main$": "#98c379"
+
+git:
+  log:
+    showGraph: never
+  autoFetch: true
+  autoRefresh: true
+  diffContextSize: 3
+  diffRenderers:
+    # Unified diff with syntax colors and line numbers. Press | to switch.
+    - name: delta
+      command: >-
+        delta --dark --paging=never --true-color=always --syntax-theme=TwoDark
+        --tabs=4 --relative-paths
+        --file-style="bold #abb2bf" --file-decoration-style="#3e4452 ul"
+        --hunk-header-style="line-number syntax"
+        --hunk-header-decoration-style="#3e4452 ul"
+        --hunk-header-line-number-style="#61afef"
+        --line-numbers
+        --line-numbers-left-format="{nm:>3} " --line-numbers-right-format="{np:>3} │ "
+        --line-numbers-left-style="#5c6370" --line-numbers-right-style="#5c6370"
+        --line-numbers-zero-style="#5c6370"
+        --line-numbers-minus-style="#e06c75" --line-numbers-plus-style="#98c379"
+        --minus-style="syntax #49282e" --minus-emph-style="syntax #753235"
+        --plus-style="syntax #243d2f" --plus-emph-style="syntax #2b5c37"
+    # Plain git with word-level coloring, for prose and markdown.
+    - type: rawGit
+      args: [--color-words]
+      name: color-words
+
+# Checkout by name from the files panel. Type to filter, Enter checks out.
+customCommands:
+  - key: b
+    context: "files, status, stash"
+    description: "Checkout branch"
+    loadingText: "Checking out"
+    prompts:
+      - type: input
+        title: "Checkout:"
+        key: Branch
+        suggestions:
+          preset: branches
+    command: git checkout {{.Form.Branch | quote}}
+
+  # Worktrees tab: e = Neovim, p = pi, c = claude (cyolo alias), each in a new herdr tab inside the
+  # worktree's herdr workspace (script: ~/.dotfiles/bin/herdr-worktree-tab, also closes this popup).
+  # O = Finder / VS Code.
+  - key: e
+    context: worktrees
+    description: "Open in Neovim (herdr tab in worktree workspace)"
+    loadingText: "Opening in Neovim"
+    command: "\"$HOME/.dotfiles/bin/herdr-worktree-tab\" {{.SelectedWorktree.Path | quote}}"
+  - key: p
+    context: worktrees
+    description: "Start pi (herdr tab in worktree workspace)"
+    loadingText: "Starting pi"
+    command: "\"$HOME/.dotfiles/bin/herdr-worktree-tab\" --run pi {{.SelectedWorktree.Path | quote}}"
+  - key: c
+    context: worktrees
+    description: "Start claude via cyolo (herdr tab in worktree workspace)"
+    loadingText: "Starting claude"
+    command: "\"$HOME/.dotfiles/bin/herdr-worktree-tab\" --run cyolo --label claude {{.SelectedWorktree.Path | quote}}"
+  - key: O
+    context: worktrees
+    description: "Open worktree in Finder / VS Code"
+    prompts:
+      - type: menu
+        title: "Open worktree in"
+        key: App
+        options:
+          - name: Finder
+            value: open
+          - name: VS Code
+            value: code
+    command: "{{.Form.App}} {{.SelectedWorktree.Path | quote}}"
+
+# Esc goes back in nested views. At the top level it quits, which closes the Herdr popup.
+quitOnTopLevelReturn: true
+disableStartupPopups: true
+update:
+  method: never

@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# Leak guard: block work-related terms from entering this personal repo.
+#
+# Usage:
+#   leak-guard              scan staged files (pre-commit)
+#   leak-guard --all        scan every tracked and untracked (non-ignored) file
+#   leak-guard --message F  scan a commit message file (commit-msg)
+#
+# False positives go in .leakguard-allow (one ERE per line, matched against "path:line:content").
+set -euo pipefail
+
+root="$(git rev-parse --show-toplevel)"
+cd "$root"
+
+# Case-insensitive ERE. Dart/Flutter are matched as word starts so "standard" etc. don't trip.
+terms='rewe|sunrise|dertouristik|software-factory|bedrock|atlassian|a1e6e98|(^|[^[:alnum:]_])(dart|flutter)'
+
+# Files that must contain the terms to do their job.
+skip_file() {
+  case "$1" in
+    .githooks/leak-guard | .leakguard-allow) return 0 ;;
+  esac
+  return 1
+}
+
+allow=()
+if [ -f .leakguard-allow ]; then
+  while IFS= read -r line; do
+    case "$line" in '' | '#'*) continue ;; esac
+    allow+=("$line")
+  done <.leakguard-allow
+fi
+
+allowed() {
+  local hit="$1" re
+  for re in ${allow[@]+"${allow[@]}"}; do
+    printf '%s\n' "$hit" | grep -Eq -- "$re" && return 0
+  done
+  return 1
+}
+
+hits=()
+report() { allowed "$1" || hits+=("$1"); }
+
+scan_stream() { # $1 = label; stdin = content
+  local label="$1" line
+  while IFS= read -r line; do
+    report "$label:$line"
+  done < <(LC_ALL=C grep -nEi -- "$terms" || true)
+}
+
+mode="${1:---staged}"
+case "$mode" in
+  --message)
+    scan_stream "commit-message" < <(grep -v '^#' "$2" || true)
+    ;;
+  --staged | --all)
+    if [ "$mode" = --staged ]; then
+      list() { git diff --cached --name-only --diff-filter=ACMR -z; }
+      content() { git show ":$1"; }
+    else
+      list() { git ls-files -z --cached --others --exclude-standard; }
+      content() { cat -- "$1"; }
+    fi
+    while IFS= read -r -d '' f; do
+      skip_file "$f" && continue
+      # The path itself.
+      printf '%s\n' "$f" | LC_ALL=C grep -Eiq -- "$terms" && report "$f:0:(path)"
+      # Text content only.
+      if content "$f" | LC_ALL=C grep -Iq . 2>/dev/null; then
+        scan_stream "$f" < <(content "$f")
+      fi
+    done < <(list)
+    ;;
+  *)
+    echo "leak-guard: unknown mode $mode" >&2
+    exit 2
+    ;;
+esac
+
+if [ ${#hits[@]} -gt 0 ]; then
+  echo "leak-guard: work-related terms found (allowlist: .leakguard-allow):" >&2
+  printf '  %s\n' "${hits[@]}" >&2
+  exit 1
+fi
+
+# Secrets scan.
+if [ "$mode" != --message ]; then
+  if command -v gitleaks >/dev/null 2>&1; then
+    if [ "$mode" = --staged ]; then
+      gitleaks git --pre-commit --staged --no-banner --redact --log-level warn --config "$root/.gitleaks.toml" "$root"
+    else
+      gitleaks dir --no-banner --redact --log-level warn --config "$root/.gitleaks.toml" "$root"
+    fi
+  else
+    echo "leak-guard: gitleaks not installed, secrets scan skipped" >&2
+  fi
+fi
