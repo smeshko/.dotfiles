@@ -5,3 +5,4 @@
 nvim/lua/local/
 nvim/lazy-lock.json
 hosts.yml
+__pycache__/
