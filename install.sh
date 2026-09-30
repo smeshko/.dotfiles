@@ -196,6 +196,14 @@ if [ "$OS" = darwin ]; then
   done
 fi
 
+# --- xcode ---------------------------------------------------------------------------------
+# Whole KeyBindings/ directory: Xcode saves by replacing files, which would break a file symlink.
+if [ "$OS" = darwin ]; then
+  say "xcode"
+  link xcode/KeyBindings "$HOME/Library/Developer/Xcode/UserData/KeyBindings"
+  "$DOTFILES/xcode/xcode.sh"
+fi
+
 say "done"
 [ -d "$BACKUP" ] && note "backups in $BACKUP"
 exit 0
