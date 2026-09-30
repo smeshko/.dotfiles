@@ -71,6 +71,26 @@ say "repo"
 git -C "$DOTFILES" config core.hooksPath .githooks
 chmod +x "$DOTFILES"/bin/* "$DOTFILES"/.githooks/*
 
+# --- homebrew --------------------------------------------------------------------------------
+# Personal Brewfile everywhere; the untracked ~/.Brewfile.local adds work-only packages.
+# No upgrades and no cleanup: only installs what is missing. DOTFILES_SKIP_BREW=1 skips this.
+if [ "$OS" = darwin ] && [ "${DOTFILES_SKIP_BREW:-0}" != 1 ]; then
+  say "homebrew"
+  BREW="$(command -v brew || true)"
+  for b in /opt/homebrew/bin/brew /usr/local/bin/brew; do
+    [ -n "$BREW" ] || { [ -x "$b" ] && BREW="$b"; }
+  done
+  [ -n "$BREW" ] || die "Homebrew missing. Install it from https://brew.sh, then re-run."
+  for bf in "$DOTFILES/Brewfile" "$HOME/.Brewfile.local"; do
+    [ -f "$bf" ] || continue
+    if "$BREW" bundle check --no-upgrade --file="$bf" >/dev/null 2>&1; then
+      note "$bf: satisfied"
+    else
+      "$BREW" bundle install --no-upgrade --file="$bf"
+    fi
+  done
+fi
+
 # --- git -------------------------------------------------------------------------------------
 say "git"
 link git/gitconfig "$HOME/.gitconfig"
