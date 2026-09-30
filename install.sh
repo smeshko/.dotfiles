@@ -23,6 +23,8 @@ case "$(uname -s)" in
   Linux) OS=linux ;;
   *) die "unsupported OS $(uname -s)" ;;
 esac
+# Tools installed by this script (and by earlier runs) land here; make them visible right away.
+export PATH="$DOTFILES/bin:$HOME/.local/bin:$PATH"
 say "os=$OS"
 
 # --- helpers ---------------------------------------------------------------------------------
@@ -106,9 +108,11 @@ say "repo"
 git -C "$DOTFILES" config core.hooksPath .githooks
 chmod +x "$DOTFILES"/bin/* "$DOTFILES"/.githooks/*
 
-# --- homebrew --------------------------------------------------------------------------------
-# No upgrades and no cleanup: only installs what is missing. DOTFILES_SKIP_BREW=1 skips this.
-if [ "$OS" = darwin ] && [ "${DOTFILES_SKIP_BREW:-0}" != 1 ]; then
+# --- packages --------------------------------------------------------------------------------
+# Only installs what is missing: no upgrades, no cleanup. DOTFILES_SKIP_PACKAGES=1 skips this section
+# (DOTFILES_SKIP_BREW=1 is the old name and still works).
+SKIP_PACKAGES="${DOTFILES_SKIP_PACKAGES:-${DOTFILES_SKIP_BREW:-0}}"
+if [ "$OS" = darwin ] && [ "$SKIP_PACKAGES" != 1 ]; then
   say "homebrew"
   BREW="$(command -v brew || true)"
   for b in /opt/homebrew/bin/brew /usr/local/bin/brew; do
@@ -121,6 +125,30 @@ if [ "$OS" = darwin ] && [ "${DOTFILES_SKIP_BREW:-0}" != 1 ]; then
     "$BREW" bundle install --no-upgrade --file="$DOTFILES/Brewfile"
   fi
 fi
+if [ "$OS" = linux ] && [ "$SKIP_PACKAGES" != 1 ]; then
+  say "packages (linux)"
+  # shellcheck source=lib/linux-packages.sh
+  . "$DOTFILES/lib/linux-packages.sh"
+fi
+
+# --- node + agent CLIs ------------------------------------------------------------------------
+# Node comes from fnm (default: latest LTS). pi and Codex are global npm packages of that Node;
+# Claude Code uses its native installer (~/.local/bin/claude). Only installed when missing.
+say "agent CLIs"
+if ! command -v node >/dev/null 2>&1 && command -v fnm >/dev/null 2>&1; then
+  eval "$(fnm env --shell bash)"
+  if ! command -v node >/dev/null 2>&1; then
+    fnm install --lts && fnm default lts-latest
+    eval "$(fnm env --shell bash)"
+  fi
+fi
+if command -v npm >/dev/null 2>&1; then
+  command -v pi >/dev/null 2>&1 || npm install -g --no-fund --no-audit @earendil-works/pi-coding-agent
+  command -v codex >/dev/null 2>&1 || npm install -g --no-fund --no-audit @openai/codex
+else
+  note "node/npm missing (install fnm): skipped pi and codex"
+fi
+command -v claude >/dev/null 2>&1 || curl -fsSL https://claude.ai/install.sh | bash
 
 # --- git -------------------------------------------------------------------------------------
 say "git"
@@ -207,8 +235,8 @@ for dir in "$DOTFILES"/agents/skills/*/; do
   link "agents/skills/$s" "$HOME/.claude/skills/$s"
 done
 # Third-party skills are restored, not vendored. Runs only when they are missing.
-THIRD_PARTY_SKILLS=(code-review edit-article git-guardrails-claude-code grill-me grill-with-docs grilling
-  handoff to-prd wait-what wayfinder writing-for-agents writing-great-skills)
+THIRD_PARTY_SKILLS=(code-review git-guardrails-claude-code grill-me grill-with-docs grilling handoff
+  wait-what wayfinder writing-for-agents)
 missing=0
 for s in "${THIRD_PARTY_SKILLS[@]}"; do [ -e "$HOME/.agents/skills/$s" ] || missing=1; done
 if [ "$missing" = 1 ]; then
@@ -275,14 +303,36 @@ say "pi"
 PI_DEV="$HOME/Developer"
 PI_PERSONAL="$HOME/.pi/personal"
 
+# Clone when missing, otherwise fast-forward pull (skipped with a note when the checkout has local
+# changes or can't fast-forward). `npm ci` (never rewrites the lockfile, so pulls keep working) runs
+# when node_modules is missing or the pull changed package.json / package-lock.json.
+pi_npm_needed=()
 for r in pi-core pi-taste pi-personal; do
-  if [ ! -d "$PI_DEV/$r" ]; then
-    git clone "git@github.com:smeshko/$r.git" "$PI_DEV/$r"
+  repo="$PI_DEV/$r"
+  if [ ! -d "$repo" ]; then
+    git clone "git@github.com:smeshko/$r.git" "$repo"
+    pi_npm_needed+=("$r")
+  elif [ -n "$(git -C "$repo" status --porcelain)" ]; then
+    note "$r: local changes, not pulled"
+  else
+    before="$(git -C "$repo" rev-parse HEAD)"
+    if git -C "$repo" pull --ff-only --quiet </dev/null; then
+      after="$(git -C "$repo" rev-parse HEAD)"
+      if [ "$before" != "$after" ]; then
+        note "$r: updated ${before:0:7}..${after:0:7}"
+        changed="$(git -C "$repo" diff --name-only "$before" "$after")"
+        if grep -qE '^package(-lock)?\.json$' <<<"$changed"; then pi_npm_needed+=("$r"); fi
+      fi
+    else
+      note "$r: pull failed (diverged or offline), left as is"
+    fi
   fi
 done
 if command -v npm >/dev/null 2>&1; then
   for r in pi-core pi-taste; do
-    [ -d "$PI_DEV/$r/node_modules" ] || (cd "$PI_DEV/$r" && npm install --no-fund --no-audit)
+    if [ ! -d "$PI_DEV/$r/node_modules" ] || [[ " ${pi_npm_needed[*]-} " == *" $r "* ]]; then
+      (cd "$PI_DEV/$r" && npm ci --no-fund --no-audit) || note "$r: npm ci failed (lockfile out of sync?)"
+    fi
   done
 else
   note "npm missing: skipped npm install in pi-core / pi-taste"
@@ -300,9 +350,27 @@ link "$PI_DEV/pi-personal/AGENTS.md" "$PI_PERSONAL/AGENTS.md"
 # --- agents: herdr state hooks ---------------------------------------------------------------
 # The hook scripts are owned by herdr (`herdr integration install`), so they are not tracked.
 if command -v herdr >/dev/null 2>&1; then
+  # Read the status once: `status | grep -q` can SIGPIPE herdr, which pipefail counts as "not current".
+  herdr_status="$(herdr integration status 2>/dev/null || true)"
   for a in claude codex; do
-    herdr integration status 2>/dev/null | grep -q "^$a: current" || herdr integration install "$a" </dev/null
+    grep -q "^$a: current" <<<"$herdr_status" || herdr integration install "$a" </dev/null
   done
+  # herdr also adds its SessionStart hook to ~/.claude/settings.json with an absolute path (it does not
+  # recognise the tracked `~` entry), which would duplicate the hook and put $HOME into the repo file.
+  python3 - "$DOTFILES/agents/claude/settings.json" "$HOME" <<'PY'
+import json, sys
+path, home = sys.argv[1], sys.argv[2]
+s = json.load(open(path))
+groups = s.get("hooks", {}).get("SessionStart", [])
+dup = f"'{home}/.claude/hooks/herdr-agent-state.sh'"
+kept = [g for g in groups if not any(dup in h.get("command", "") for h in g.get("hooks", []))]
+if len(kept) != len(groups):
+    s["hooks"]["SessionStart"] = kept
+    with open(path, "w") as f:
+        json.dump(s, f, indent=2)
+        f.write("\n")
+    print("    removed herdr's duplicate SessionStart hook from Claude settings")
+PY
 fi
 
 # --- local hook ------------------------------------------------------------------------------
