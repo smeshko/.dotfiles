@@ -1,33 +1,29 @@
 #!/usr/bin/env bash
-# Personal dotfiles installer. Safe to re-run.
-#
-# Machine role comes from the untracked ~/.dotfiles-profile:
-#   ROLE=personal-mac | work-mac | vps
+# Developer setup installer, the same on every machine (only macOS vs Linux differs). Safe to re-run.
 # Anything already at a target path is moved to ~/.dotfiles-backup/<timestamp>/ before linking.
+#
+# Machine-specific additions never live here. The repo only offers generic hooks:
+#   config includes  ~/.zshenv.local, ~/.zshrc.local, ~/.bashrc.local, ~/.gitconfig.local,
+#                    nvim/lua/local/, ~/.config/vscode/{settings,keybindings}.local.json
+#   installer hook   ~/.dotfiles.local.sh, sourced at the end with this script's helpers
+#                    (link, retire, backup, say, note, die) and variables (DOTFILES, OS, BACKUP)
 set -euo pipefail
 
 DOTFILES="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-PROFILE="$HOME/.dotfiles-profile"
+LOCAL_HOOK="$HOME/.dotfiles.local.sh"
 BACKUP="$HOME/.dotfiles-backup/$(date +%Y%m%d-%H%M%S)"
 
 say() { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 note() { printf '    %s\n' "$*"; }
 die() { printf '\033[1;31mxx\033[0m %s\n' "$*" >&2; exit 1; }
 
-# --- role / OS -------------------------------------------------------------------------------
-[ -f "$PROFILE" ] || die "missing $PROFILE (create it with ROLE=personal-mac|work-mac|vps)"
-# shellcheck disable=SC1090
-. "$PROFILE"
-case "${ROLE:-}" in
-  personal-mac | work-mac | vps) ;;
-  *) die "invalid ROLE='${ROLE:-}' in $PROFILE" ;;
-esac
+# --- OS --------------------------------------------------------------------------------------
 case "$(uname -s)" in
   Darwin) OS=darwin ;;
   Linux) OS=linux ;;
   *) die "unsupported OS $(uname -s)" ;;
 esac
-say "role=$ROLE os=$OS"
+say "os=$OS"
 
 # --- helpers ---------------------------------------------------------------------------------
 # Move an existing path into the backup dir, keeping its $HOME-relative location.
@@ -111,7 +107,6 @@ git -C "$DOTFILES" config core.hooksPath .githooks
 chmod +x "$DOTFILES"/bin/* "$DOTFILES"/.githooks/*
 
 # --- homebrew --------------------------------------------------------------------------------
-# Personal Brewfile everywhere; the untracked ~/.Brewfile.local adds work-only packages.
 # No upgrades and no cleanup: only installs what is missing. DOTFILES_SKIP_BREW=1 skips this.
 if [ "$OS" = darwin ] && [ "${DOTFILES_SKIP_BREW:-0}" != 1 ]; then
   say "homebrew"
@@ -120,14 +115,11 @@ if [ "$OS" = darwin ] && [ "${DOTFILES_SKIP_BREW:-0}" != 1 ]; then
     [ -n "$BREW" ] || { [ -x "$b" ] && BREW="$b"; }
   done
   [ -n "$BREW" ] || die "Homebrew missing. Install it from https://brew.sh, then re-run."
-  for bf in "$DOTFILES/Brewfile" "$HOME/.Brewfile.local"; do
-    [ -f "$bf" ] || continue
-    if "$BREW" bundle check --no-upgrade --file="$bf" >/dev/null 2>&1; then
-      note "$bf: satisfied"
-    else
-      "$BREW" bundle install --no-upgrade --file="$bf"
-    fi
-  done
+  if "$BREW" bundle check --no-upgrade --file="$DOTFILES/Brewfile" >/dev/null 2>&1; then
+    note "Brewfile: satisfied"
+  else
+    "$BREW" bundle install --no-upgrade --file="$DOTFILES/Brewfile"
+  fi
 fi
 
 # --- git -------------------------------------------------------------------------------------
@@ -277,14 +269,11 @@ fi
 
 # --- agents: pi ------------------------------------------------------------------------------
 # Packages are their own repos under ~/Developer (pi-taste imports pi-core, so they must be siblings).
-# Personal profile: ~/.pi/personal, launched with `pii` (bin/pii) on every machine.
-# Work profile (work Mac only): pi's default ~/.pi/agent with a local package set in ~/.dotfiles-profile
-# as PI_WORK_PACKAGE=<path>. Its settings are never tracked.
+# The profile is ~/.pi/personal, launched with `pii` (bin/pii). Other profiles (e.g. pi's default
+# ~/.pi/agent) are not managed here.
 say "pi"
 PI_DEV="$HOME/Developer"
 PI_PERSONAL="$HOME/.pi/personal"
-# Skills in ~/.agents/skills that only the personal profile should see.
-PI_PERSONAL_ONLY_SKILLS=(deck-creator typesafe-ai)
 
 for r in pi-core pi-taste pi-personal; do
   if [ ! -d "$PI_DEV/$r" ]; then
@@ -308,41 +297,19 @@ link "$PI_DEV/pi-personal/AGENTS.md" "$PI_PERSONAL/AGENTS.md"
 # The launcher now lives in bin/.
 [ -L "$HOME/.local/bin/pii" ] || retire "$HOME/.local/bin/pii"
 
-if [ "$ROLE" = work-mac ]; then
-  if [ -n "${PI_WORK_PACKAGE:-}" ] && [ -d "$PI_WORK_PACKAGE" ]; then
-    link "$PI_WORK_PACKAGE/AGENTS.md" "$HOME/.pi/agent/AGENTS.md"
-    # Hide personal-only skills from the work profile (pi "-path" = exact exclusion).
-    if [ -f "$HOME/.pi/agent/settings.json" ]; then
-      python3 - "$HOME/.pi/agent/settings.json" "${PI_PERSONAL_ONLY_SKILLS[@]}" <<'PY'
-import json, os, sys
-path, names = sys.argv[1], sys.argv[2:]
-s = json.load(open(path))
-skills = s.setdefault("skills", [])
-# pi matches "-path" literally (no ~ expansion), so write the absolute path.
-home = os.path.expanduser("~")
-want = [f"-{home}/.agents/skills/{n}" for n in names]
-stale = [e for e in skills if e.startswith("-~/")]
-missing = [w for w in want if w not in skills]
-if missing or stale:
-    skills[:] = [e for e in skills if e not in stale] + missing
-    with open(path, "w") as f:
-        json.dump(s, f, indent=2)
-        f.write("\n")
-    if missing:
-        print("    work pi profile: hid " + ", ".join(m.rsplit("/", 1)[1] for m in missing))
-PY
-    fi
-  else
-    note "work pi profile not wired: set PI_WORK_PACKAGE in $PROFILE to the local work package dir"
-  fi
-fi
-
 # --- agents: herdr state hooks ---------------------------------------------------------------
 # The hook scripts are owned by herdr (`herdr integration install`), so they are not tracked.
 if command -v herdr >/dev/null 2>&1; then
   for a in claude codex; do
     herdr integration status 2>/dev/null | grep -q "^$a: current" || herdr integration install "$a" </dev/null
   done
+fi
+
+# --- local hook ------------------------------------------------------------------------------
+if [ -f "$LOCAL_HOOK" ]; then
+  say "local ($LOCAL_HOOK)"
+  # shellcheck disable=SC1090
+  . "$LOCAL_HOOK"
 fi
 
 say "done"
