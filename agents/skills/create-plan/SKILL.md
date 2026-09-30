@@ -1,7 +1,7 @@
 ---
 name: create-plan
 description: Author an implementation plan — a PLAN.md dashboard plus per-task files under docs/artifacts/plans/<slug>/ — before writing code. Use when the task is ambiguous, spans multiple files, or carries non-trivial risk, when the user asks to plan first, or to turn one epic phase into a plan (--epic/--phase). Skip for single-line fixes with obvious scope.
-argument-hint: [--epic <NN> --phase <NN.M>] [<path-to-existing-exploration-file>]
+argument-hint: "[--epic <NN> --phase <NN.M>] [<path-to-existing-exploration-file>]"
 ---
 
 # Create Plan

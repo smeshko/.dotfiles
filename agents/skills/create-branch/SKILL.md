@@ -1,6 +1,6 @@
 ---
 name: create-branch
-description: Create a new git branch off a freshly fast-forward-pulled base (default: the remote's default branch). Use when the user asks to create/cut/start a branch, or when another skill needs one programmatically. Requires a clean working tree — the caller resolves dirty state first.
+description: "Create a new git branch off a freshly fast-forward-pulled base (default: the remote's default branch). Use when the user asks to create/cut/start a branch, or when another skill needs one programmatically. Requires a clean working tree — the caller resolves dirty state first."
 argument-hint: <branch-name> [--base <base-branch>]
 ---
 

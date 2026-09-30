@@ -40,9 +40,10 @@ backup() {
   note "backed up $path -> $dest"
 }
 
-# link <repo-relative source> <absolute target>
+# link <repo-relative or absolute source> <absolute target>
 link() {
-  local src="$DOTFILES/$1" dst="$2"
+  local src="$1" dst="$2"
+  case "$src" in /*) ;; *) src="$DOTFILES/$src" ;; esac
   [ -e "$src" ] || die "link source missing: $src"
   if [ -L "$dst" ] && [ "$(readlink "$dst")" = "$src" ]; then
     return 0
@@ -272,6 +273,68 @@ if add:
             f.write(f'\n[mcp_servers.{n}]\nurl = {json.dumps(servers[n]["url"])}\n')
             print(f"    added codex MCP server {n} (log in with: codex mcp login {n})")
 PY
+fi
+
+# --- agents: pi ------------------------------------------------------------------------------
+# Packages are their own repos under ~/Developer (pi-taste imports pi-core, so they must be siblings).
+# Personal profile: ~/.pi/personal, launched with `pii` (bin/pii) on every machine.
+# Work profile (work Mac only): pi's default ~/.pi/agent with a local package set in ~/.dotfiles-profile
+# as PI_WORK_PACKAGE=<path>. Its settings are never tracked.
+say "pi"
+PI_DEV="$HOME/Developer"
+PI_PERSONAL="$HOME/.pi/personal"
+# Skills in ~/.agents/skills that only the personal profile should see.
+PI_PERSONAL_ONLY_SKILLS=(deck-creator typesafe-ai)
+
+for r in pi-core pi-taste pi-personal; do
+  if [ ! -d "$PI_DEV/$r" ]; then
+    git clone "git@github.com:smeshko/$r.git" "$PI_DEV/$r"
+  fi
+done
+if command -v npm >/dev/null 2>&1; then
+  for r in pi-core pi-taste; do
+    [ -d "$PI_DEV/$r/node_modules" ] || (cd "$PI_DEV/$r" && npm install --no-fund --no-audit)
+  done
+else
+  note "npm missing: skipped npm install in pi-core / pi-taste"
+fi
+
+mkdir -p "$PI_PERSONAL"
+if [ ! -e "$PI_PERSONAL/settings.json" ]; then
+  cp "$DOTFILES/agents/pi/settings.personal.json" "$PI_PERSONAL/settings.json"
+  note "seeded $PI_PERSONAL/settings.json"
+fi
+link "$PI_DEV/pi-personal/AGENTS.md" "$PI_PERSONAL/AGENTS.md"
+# The launcher now lives in bin/.
+[ -L "$HOME/.local/bin/pii" ] || retire "$HOME/.local/bin/pii"
+
+if [ "$ROLE" = work-mac ]; then
+  if [ -n "${PI_WORK_PACKAGE:-}" ] && [ -d "$PI_WORK_PACKAGE" ]; then
+    link "$PI_WORK_PACKAGE/AGENTS.md" "$HOME/.pi/agent/AGENTS.md"
+    # Hide personal-only skills from the work profile (pi "-path" = exact exclusion).
+    if [ -f "$HOME/.pi/agent/settings.json" ]; then
+      python3 - "$HOME/.pi/agent/settings.json" "${PI_PERSONAL_ONLY_SKILLS[@]}" <<'PY'
+import json, os, sys
+path, names = sys.argv[1], sys.argv[2:]
+s = json.load(open(path))
+skills = s.setdefault("skills", [])
+# pi matches "-path" literally (no ~ expansion), so write the absolute path.
+home = os.path.expanduser("~")
+want = [f"-{home}/.agents/skills/{n}" for n in names]
+stale = [e for e in skills if e.startswith("-~/")]
+missing = [w for w in want if w not in skills]
+if missing or stale:
+    skills[:] = [e for e in skills if e not in stale] + missing
+    with open(path, "w") as f:
+        json.dump(s, f, indent=2)
+        f.write("\n")
+    if missing:
+        print("    work pi profile: hid " + ", ".join(m.rsplit("/", 1)[1] for m in missing))
+PY
+    fi
+  else
+    note "work pi profile not wired: set PI_WORK_PACKAGE in $PROFILE to the local work package dir"
+  fi
 fi
 
 # --- agents: herdr state hooks ---------------------------------------------------------------

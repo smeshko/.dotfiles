@@ -1,0 +1,29 @@
+{
+  "defaultThinkingLevel": "medium",
+  "compaction": {
+    "enabled": false
+  },
+  "transport": "sse",
+  "hideThinkingBlock": true,
+  "theme": "dark",
+  "autocompleteMaxVisible": 10,
+  "terminal": {
+    "showTerminalProgress": true
+  },
+  "tuiMode": "regular",
+  "defaultProvider": "openai",
+  "defaultModel": "gpt-6.1-sol",
+  "enabledModels": [
+    "openai-codex/gpt-6-astra",
+    "openai-codex/gpt-6-luna",
+    "openai-codex/gpt-6-sol",
+    "openai/gpt-6.1-sol",
+    "openai/gpt-6-astra",
+    "openai/gpt-6-luna"
+  ],
+  "packages": [
+    "~/Developer/pi-core",
+    "~/Developer/pi-taste",
+    "~/Developer/pi-personal"
+  ]
+}

@@ -1,0 +1,3 @@
+#!/bin/sh
+# Personal pi profile (packages: pi-core, pi-taste, pi-personal). Set up by ~/.dotfiles/install.sh.
+PI_CODING_AGENT_DIR="$HOME/.pi/personal" exec pi "$@"
