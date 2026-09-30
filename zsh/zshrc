@@ -1,0 +1,13 @@
+# Interactive zsh. Everything lives in ~/.dotfiles/zsh; machine-local bits in ~/.zshrc.local.
+DOTFILES="${DOTFILES:-$HOME/.dotfiles}"
+
+for _f in path env aliases tools functions; do
+  source "$DOTFILES/zsh/$_f.zsh"
+done
+case "$OSTYPE" in
+  darwin*) source "$DOTFILES/zsh/os/darwin.zsh" ;;
+  linux*) source "$DOTFILES/zsh/os/linux.zsh" ;;
+esac
+unset _f
+
+[[ -f "$HOME/.zshrc.local" ]] && source "$HOME/.zshrc.local"

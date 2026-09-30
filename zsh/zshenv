@@ -1,0 +1,5 @@
+# Read by every zsh, including non-interactive ones. Keep it tiny.
+typeset -U path PATH
+
+# Machine-local PATH for non-interactive shells (untracked).
+[[ -f "$HOME/.zshenv.local" ]] && source "$HOME/.zshenv.local"

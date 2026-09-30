@@ -1,0 +1,9 @@
+# Minimal bash: zsh is the main shell.
+for _brew in /opt/homebrew/bin/brew /usr/local/bin/brew; do
+  [ -z "$HOMEBREW_PREFIX" ] && [ -x "$_brew" ] && eval "$("$_brew" shellenv)"
+done
+unset _brew
+
+export PATH="$HOME/.dotfiles/bin:$HOME/.local/bin:$PATH"
+
+[ -f "$HOME/.bashrc.local" ] && . "$HOME/.bashrc.local"

@@ -78,6 +78,19 @@ link git/ignore "$HOME/.config/git/ignore"
 retire "$HOME/.gitignore_global"
 [ -f "$HOME/.gitconfig.local" ] || note "no ~/.gitconfig.local (optional machine overrides)"
 
+# --- shells --------------------------------------------------------------------------------
+say "zsh / bash"
+link zsh/zshenv "$HOME/.zshenv"
+link zsh/zshrc "$HOME/.zshrc"
+link bash/bashrc "$HOME/.bashrc"
+link bash/bash_profile "$HOME/.bash_profile"
+# Old startup files, prompt themes and shells that are no longer used.
+for f in .zprofile .zlogin .zshrc.backup .zshrc.bak .p10k.zsh .config/fish; do
+  retire "$HOME/$f"
+done
+# ~/.profile is still the login file for sh; on macOS it only held version-manager hooks.
+[ "$OS" = darwin ] && retire "$HOME/.profile"
+
 # --- ghostty ---------------------------------------------------------------------------------
 if [ "$OS" = darwin ]; then
   say "ghostty"
