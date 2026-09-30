@@ -3,3 +3,6 @@
 
 # LazyVim Dart language extra (the one allowed Dart/Flutter reference).
 ^nvim/[^:]*:[0-9]+:.*lazyvim\.plugins\.extras\.lang\.dart
+
+# Dart treesitter node types in the zen scope comment (Dart editing itself is allowed via the lang.dart extra).
+^nvim/lua/plugins/zen\.lua:[0-9]+:[[:space:]]*-- dart: `function_body`

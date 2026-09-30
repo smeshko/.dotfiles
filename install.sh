@@ -99,6 +99,11 @@ link gh/config.yml "${XDG_CONFIG_HOME:-$HOME/.config}/gh/config.yml"
 # --- tmux (no longer used) -------------------------------------------------------------------
 retire "$HOME/.tmux.conf"
 
+# --- neovim ----------------------------------------------------------------------------------
+say "nvim"
+link nvim "${XDG_CONFIG_HOME:-$HOME/.config}/nvim"
+# lua/local/ (gitignored) holds machine-only plugins/keymaps; lazy-lock.json is gitignored too.
+
 # --- ghostty ---------------------------------------------------------------------------------
 if [ "$OS" = darwin ]; then
   say "ghostty"
