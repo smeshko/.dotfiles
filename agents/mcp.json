@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "mobbin": {
+      "type": "http",
+      "url": "https://api.mobbin.com/mcp"
+    },
+    "linear-server": {
+      "type": "http",
+      "url": "https://mcp.linear.app/mcp"
+    },
+    "railway": {
+      "type": "http",
+      "url": "https://mcp.railway.com"
+    }
+  }
+}

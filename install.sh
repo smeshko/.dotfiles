@@ -204,6 +204,84 @@ if [ "$OS" = darwin ]; then
   "$DOTFILES/xcode/xcode.sh"
 fi
 
+# --- agents: skills --------------------------------------------------------------------------
+# Own skills: one symlink per skill in ~/.agents/skills (Codex and other agents) and ~/.claude/skills.
+# Other entries in those dirs (third-party or untracked skills) are left alone.
+say "agent skills"
+for dir in "$DOTFILES"/agents/skills/*/; do
+  s="$(basename "$dir")"
+  link "agents/skills/$s" "$HOME/.agents/skills/$s"
+  link "agents/skills/$s" "$HOME/.claude/skills/$s"
+done
+# Third-party skills are restored, not vendored. Runs only when they are missing.
+THIRD_PARTY_SKILLS=(code-review edit-article git-guardrails-claude-code grill-me grill-with-docs grilling
+  handoff to-prd wait-what wayfinder writing-for-agents writing-great-skills)
+missing=0
+for s in "${THIRD_PARTY_SKILLS[@]}"; do [ -e "$HOME/.agents/skills/$s" ] || missing=1; done
+if [ "$missing" = 1 ]; then
+  if command -v npx >/dev/null 2>&1; then
+    npx -y skills@latest add mattpocock/skills -g -y -a claude-code -a codex -s "${THIRD_PARTY_SKILLS[@]}"
+  else
+    note "npx missing: skipped third-party skills (mattpocock/skills)"
+  fi
+fi
+# Dropped: find-skills; Codex's private copy of drive-screen (it reads ~/.agents/skills).
+retire "$HOME/.agents/skills/find-skills"
+retire "$HOME/.claude/skills/find-skills"
+retire "$HOME/.codex/skills/drive-screen"
+
+# --- agents: claude --------------------------------------------------------------------------
+say "claude"
+link agents/claude/settings.json "$HOME/.claude/settings.json"
+link agents/claude/CLAUDE.md "$HOME/.claude/CLAUDE.md"
+link agents/claude/statusline-command.sh "$HOME/.claude/statusline-command.sh"
+link agents/claude/hooks "$HOME/.claude/scripts/hooks"
+# Dropped: own agents/commands, claude-code-docs, jev-guard, the old enhanced statusline.
+for p in .claude/agents .claude/commands .claude/statusline-enhanced.sh .claude-code-docs .agents/jev-guard; do
+  retire "$HOME/$p"
+done
+if command -v claude >/dev/null 2>&1; then
+  # User-scope MCP servers from agents/mcp.json (only the missing ones).
+  while IFS=$'\t' read -r name json; do
+    claude mcp get "$name" >/dev/null 2>&1 || claude mcp add-json -s user "$name" "$json" </dev/null
+  done < <(python3 -c 'import json,sys
+for n,s in json.load(open(sys.argv[1]))["mcpServers"].items(): print(n, json.dumps(s), sep="\t")' "$DOTFILES/agents/mcp.json")
+fi
+
+# --- agents: codex ---------------------------------------------------------------------------
+say "codex"
+# Seed-copy: Codex keeps writing machine state (project trust, hook hashes) into config.toml.
+if [ ! -e "$HOME/.codex/config.toml" ]; then
+  mkdir -p "$HOME/.codex"
+  cp "$DOTFILES/agents/codex/config.toml" "$HOME/.codex/config.toml"
+  note "seeded ~/.codex/config.toml"
+fi
+retire "$HOME/.codex/prompts"
+# MCP servers from agents/mcp.json: append missing [mcp_servers.<name>] tables. Not `codex mcp add`,
+# which blocks on an OAuth browser login; run `codex mcp login <name>` yourself when needed.
+if [ -f "$HOME/.codex/config.toml" ]; then
+  python3 - "$DOTFILES/agents/mcp.json" "$HOME/.codex/config.toml" <<'PY'
+import json, sys, tomllib
+servers = json.load(open(sys.argv[1]))["mcpServers"]
+path = sys.argv[2]
+have = tomllib.load(open(path, "rb")).get("mcp_servers", {})
+add = [n for n in servers if n not in have]
+if add:
+    with open(path, "a") as f:
+        for n in add:
+            f.write(f'\n[mcp_servers.{n}]\nurl = {json.dumps(servers[n]["url"])}\n')
+            print(f"    added codex MCP server {n} (log in with: codex mcp login {n})")
+PY
+fi
+
+# --- agents: herdr state hooks ---------------------------------------------------------------
+# The hook scripts are owned by herdr (`herdr integration install`), so they are not tracked.
+if command -v herdr >/dev/null 2>&1; then
+  for a in claude codex; do
+    herdr integration status 2>/dev/null | grep -q "^$a: current" || herdr integration install "$a" </dev/null
+  done
+fi
+
 say "done"
 [ -d "$BACKUP" ] && note "backups in $BACKUP"
 exit 0

@@ -1,0 +1,19 @@
+# Codex seed config: copied to ~/.codex/config.toml only when that file does not exist.
+# Codex then owns the file (project trust, marketplaces, hook trust hashes stay local).
+# MCP servers from agents/mcp.json are added by install.sh via `codex mcp add`.
+model = "gpt-6-sol"
+personality = "pragmatic"
+model_reasoning_effort = "medium"
+
+[notice]
+hide_rate_limit_model_nudge = true
+
+[tui]
+status_line = ["model-with-reasoning", "current-dir", "git-branch", "branch-changes", "context-remaining", "five-hour-limit", "weekly-limit"]
+status_line_use_colors = true
+theme = "inspired-github"
+
+[features]
+hooks = true
+terminal_resize_reflow = true
+memories = true
