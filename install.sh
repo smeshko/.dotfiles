@@ -91,6 +91,14 @@ done
 # ~/.profile is still the login file for sh; on macOS it only held version-manager hooks.
 [ "$OS" = darwin ] && retire "$HOME/.profile"
 
+# --- gh --------------------------------------------------------------------------------------
+say "gh"
+# config.yml only; hosts.yml holds auth tokens and stays local.
+link gh/config.yml "${XDG_CONFIG_HOME:-$HOME/.config}/gh/config.yml"
+
+# --- tmux (no longer used) -------------------------------------------------------------------
+retire "$HOME/.tmux.conf"
+
 # --- ghostty ---------------------------------------------------------------------------------
 if [ "$OS" = darwin ]; then
   say "ghostty"

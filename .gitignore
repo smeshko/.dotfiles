@@ -4,3 +4,4 @@
 # nvim (step 4): machine-local plugins and the lockfile
 nvim/lua/local/
 nvim/lazy-lock.json
+hosts.yml
