@@ -134,7 +134,7 @@ except Exception as error:
 PY
 ```
 
-Read each `answers.<question>.choice` and its `probabilities`; retain `model` for provenance. Missing questions, invalid labels or malformed responses count as unavailable, not a favorable result. If credentials, network, quota or privacy policy prevent review, record the reason and perform the same proof-obligation review manually. A service failure neither drops coverage nor waives the skill's quality gates. For transient errors, at most two retries with backoff; avoid repeated calls seeking a favorable answer. Consult https://docs.typesafe.ai/api.md if the service contract changes.
+Read each `answers.<question>.choice` and its `probabilities`; retain `model` for provenance. Missing questions, invalid labels or malformed responses count as unavailable, not a favorable result. If credentials, network, quota or privacy policy prevent review, perform the same proof-obligation review manually and name the reason in the skill's final report. A service failure neither drops coverage nor waives the skill's quality gates. For transient errors, at most two retries with backoff; avoid repeated calls seeking a favorable answer. Consult https://docs.typesafe.ai/api.md if the service contract changes.
 
 ## 3. Resolve findings across the suite
 
@@ -145,23 +145,18 @@ Independent answers can contradict each other. Resolve contradictions, uncertain
 | Required bug is not triggered | Repair the scenario or choose a witness it actually exercises. |
 | Trigger reached, test survives | Inspect the assertion and strengthen it when it misses the claimed behavior. |
 | Circular or unexecuted assertion | Rewrite through the intended production surface with an independent expectation. |
-| Missing evidence | Fetch the relevant helper/fixture/contract; if unavailable, record manual-review limitations. |
+| Missing evidence | Fetch the relevant helper/fixture/contract; if unavailable, name the manual-review limitation in the skill's final report. |
 | Candidate detects, retained test survives | Evidence of additional detection for this witness only. |
 | Both detect | Overlap for this witness, not proof that either entire test is redundant. |
 
-Compare the final retained suite, not a sequence of local keep/drop decisions: A can add nothing beyond B even if B adds something beyond A. Two candidates must not each be discarded on the assumption that the other remains. Remove a test only after agent review identifies retained coverage for its claimed behaviors and independent boundaries; record the rationale and preserve every AC mapping. Exact duplicate detection needs no model judgment.
+Compare the final retained suite, not a sequence of local keep/drop decisions: A can add nothing beyond B even if B adds something beyond A. Two candidates must not each be discarded on the assumption that the other remains. Remove a test only after agent review identifies retained coverage for its claimed behaviors and independent boundaries; keep the rationale for section 4 and preserve every AC mapping. Exact duplicate detection needs no model judgment.
 
 Example: `[3,1,2] → [1,2,3]` catches unchanged input; `[10,2,1] → [1,2,10]` catches that and alphabetical sorting. The first has no distinct proof among those witnesses. `[2,1,2] → [1,2,2]` adds duplicate preservation. These are bounded comparisons, not guarantees about all possible bugs.
 
 After writing, compare actual setup/assertions with the reviewed design. Repeat mechanics requests for material differences or unresolved mocking, helper or assertion concerns; exact faithful realizations need no duplicate call. A revised witness also needs a contract check. Predictions about a regression-induced exception are useful review evidence, but Step 6 still requires assertion failures against the initial stubs. Stub-red proves sensitivity to those stubs, not to every relevant regression.
 
-## 4. Record the disposition
+## 4. Record removals only
 
-Write `tdd/jev-review.md` in the plan directory, alongside the later `red.txt`. Keep it compact:
+The review writes no artifact of its own. Its one lasting trace is a line per removed test — the test, and the retained test that covers its claimed behaviours — which `tdd-plan` Step 7 writes into the task file's `## Tests` section. Revised, retained and merged tests are recorded by the tests themselves.
 
-- Requirement sources, test IDs, witness IDs and final test-to-AC mapping.
-- Reviewed test/witness pairs, phase, returned model, labels and option probabilities; distinguish predictions from executed evidence.
-- Agent decisions: revised, retained, merged or removed, with retained coverage named for every removal.
-- Post-write reconciliation and any manual fallback reason or remaining evidence limitation.
-
-Keep raw source-bearing API payloads/responses temporary unless project policy allows their retention. Record only the necessary review summary in the plan artifact. Completion means every proposed test has a witness and reviewed disposition (Jev-assisted or explicit manual fallback), the retained suite still covers the ACs, and actual tests match that disposition. Jev never replaces the skipped-suite, assertion-red or baseline checks.
+Keep raw source-bearing API payloads/responses temporary unless project policy allows their retention. Completion means every proposed test has a witness and a reviewed outcome (Jev-assisted or explicit manual fallback), the retained suite still covers the ACs, and actual tests match the reviewed design. Jev never replaces the skipped-suite, assertion-red or baseline checks.

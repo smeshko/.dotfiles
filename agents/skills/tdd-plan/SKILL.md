@@ -2,6 +2,8 @@
 name: tdd-plan
 description: Write a plan's tests before implementation — tight, non-vacuous tests proven red against stubs, committed as pending on the plan's branch, then a draft PR opened for review. Use between validate-plan and implement-plan when the user says "tdd the plan", "write the tests first", or names tdd-plan.
 argument-hint: [<plan-slug>]
+model: opus
+effort: medium
 ---
 
 # TDD Plan
@@ -37,18 +39,18 @@ Read `~/.claude/skills/shared/non-vacuous-tests.md` now. Then, for each `impl` t
 - A task that changes no behaviour (a pure refactor) → no new tests; the existing suite staying green proves it.
 - A criterion only a screenshot, log or manual check can prove → no test; it stays Evidence for `implement-plan`.
 
-Before writing, read `references/jev-review.md` and follow its advisory review: give each proposed test a concrete regression witness, check that the witness violates its criterion, then check whether the test would catch it. Compare competing tests across the retained suite. The agent resolves findings and owns selection; record the disposition or explicit manual fallback in the plan's `tdd/jev-review.md`.
+Before writing, read `references/jev-review.md` and follow its advisory review: give each proposed test a concrete regression witness, check that the witness violates its criterion, then check whether the test would catch it. Compare competing tests across the retained suite. The agent resolves findings and owns selection. The review leaves one trace: for each test it removes, a line naming the retained test that covers it, which Step 7 writes into the task file.
 
-Done when: every Acceptance criterion of every `impl` task maps to named tests, or to Evidence or none with a one-line reason; every proposed test has a reviewed witness and disposition, and every removed test names the retained coverage.
+Done when: every Acceptance criterion of every `impl` task maps to named tests, or to Evidence or none with a one-line reason; every proposed test has a reviewed witness, and every removed test names the retained coverage.
 
 ## Step 4: Write stubs and tests
 
 - **Stubs** — every new symbol the tests call, with its final signature and a body returning a *wrong* value of the right type, chosen so every test fails on its assertion: a filter stub returns its input unfiltered, a sort stub returns its input unsorted. Existing symbols keep their current behaviour — for a changed behaviour, the current one is the wrong value.
 - **Tests** — in the repo's existing test layout and style. Every new or changed test gets one sticker for its task, in the form `references/stickers.md` gives for the stack.
 
-Reconcile the actual tests with the reviewed designs using `references/jev-review.md`: repeat mechanics checks for material differences or unresolved concerns, and update `tdd/jev-review.md`. Review the runnable body without its pending sticker; the existing stub is not the hypothetical regression.
+Reconcile the actual tests with the reviewed designs using `references/jev-review.md`: repeat mechanics checks for material differences or unresolved concerns. Review the runnable body without its pending sticker; the existing stub is not the hypothetical regression.
 
-Done when: the test target builds and every new or changed test matches its recorded review disposition.
+Done when: the test target builds and every new or changed test matches its reviewed design.
 
 ## Step 5: Prove the stickers hold
 
@@ -88,7 +90,7 @@ python3 ~/.claude/skills/tdd-plan/scripts/set_tests_commit.py <slug> $(git rev-p
 python3 ~/.claude/skills/implement-plan/scripts/set_plan_status.py <slug> tests-ready
 ```
 
-Append a `## Tests` section to each `impl` task file: its test files, its test names, `tdd/jev-review.md` as the design-review record, and `tdd/red.txt` as the red evidence — or `None — <reason>` from Step 3. Commit the plan dir via `create-commit` as `chore: record tests for <slug>`, then confirm the baseline:
+Append a `## Tests` section to each `impl` task file: its test files, its test names, `tdd/red.txt` as the red evidence, and one line per test the design review removed, naming the retained test that covers it — or `None — <reason>` from Step 3. Commit the plan dir via `create-commit` as `chore: record tests for <slug>`, then confirm the baseline:
 
 ```bash
 python3 ~/.claude/skills/tdd-plan/scripts/check_tests.py <slug>

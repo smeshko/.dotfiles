@@ -2,6 +2,8 @@
 name: review-plan
 description: Adversarial review of a completed plan's branch before opening a PR — triage Codex findings, fix the real bugs as separate commits, re-run to confirm. Use between implement-plan and create-pr when the user says "review the branch", "harden this before the PR", or wants an adversarial pass over the implementation. (Pre-implementation validation of the plan text is validate-plan, not this.)
 argument-hint: [<plan-slug>]
+model: opus
+effort: high
 ---
 
 # Review Plan
@@ -52,7 +54,7 @@ mkdir -p docs/artifacts/plans/<slug>/reviews
 
 ### Phase 3 — Round 1
 
-Run the round per the shared protocol, recording to `reviews/round-1.md` from `references/round.md.tmpl`:
+Run the round per the shared protocol — its gate is `next_round.py <slug> reviews` — recording to `reviews/round-1.md` from `references/round.md.tmpl`:
 
 ```
 /codex-local:adversarial-review --wait --scope branch --base <base> Besides bugs, hunt for production code shaped to its tests rather than to the behaviour — special-cased test inputs, hardcoded expected values — and for test changes that weaken an assertion, including `test(...): amend` commits.
@@ -88,7 +90,7 @@ For each `fix` row, in order:
 
 ### Phases 6–7 — Rounds 2 and 3
 
-Per the shared protocol. Round-2 focus text:
+Per the shared protocol, each round gated first (`next_round.py <slug> reviews`). Round-2 focus text:
 
 ```
 /codex-local:adversarial-review --wait --scope branch --base <base> Second pass. Round-1 findings and triage are in docs/artifacts/plans/<slug>/reviews/round-1.md (Codex's verbatim output followed by a triage table marking each item fix/defer/reject with rationale and the fix commit SHA). Verify the fixes are sufficient, push back on any deferral or rejection rationale you disagree with, and surface anything new — especially regressions introduced by the fixes themselves.

@@ -13,7 +13,7 @@ Args:
 
 Creates:
     <root>/docs/artifacts/plans/<slug>/PLAN.md
-    <root>/docs/artifacts/plans/<slug>/RESEARCH.md   (risk in {medium, large, high})
+    <root>/docs/artifacts/plans/<slug>/RESEARCH.md   (risk in {large, high})
     <root>/docs/artifacts/plans/<slug>/tasks/
 
 On success prints the created directory and the chosen slug.
@@ -29,7 +29,7 @@ import sys
 from pathlib import Path
 
 VALID_RISKS = ("tiny", "small", "medium", "large", "high")
-RESEARCH_REQUIRED = {"medium", "large", "high"}
+RESEARCH_REQUIRED = {"large", "high"}
 
 REFERENCES = Path(__file__).resolve().parent.parent / "references"
 PLAN_TEMPLATE = REFERENCES / "template-plan.md"
@@ -102,7 +102,7 @@ def main() -> int:
     print(f"created: {plan_dir}")
     print(f"slug:    {slug}")
     print(f"risk:    {args.risk}")
-    print(f"research: {'RESEARCH.md created' if research_created else 'skipped (risk below medium)'}")
+    print(f"research: {'RESEARCH.md created' if research_created else 'skipped (risk below large)'}")
     return 0
 
 

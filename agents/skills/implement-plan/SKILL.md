@@ -2,11 +2,13 @@
 name: implement-plan
 description: Execute a plan produced by create-plan end-to-end — walk its tasks in order, one commit per task, ticking PLAN.md checkboxes as it goes. Use when the user asks to "implement the plan", "work through the tasks", or "execute <plan-name>". Skip if no such plan exists yet — run create-plan first.
 argument-hint: <plan-slug | task-id | path-to-PLAN.md-or-task-file>
+model: sonnet
+effort: medium
 ---
 
 # Implement Plan
 
-Drive a plan created by `create-plan` to completion. Walk its tasks in order, implement each one, tick its checkbox in `PLAN.md`, invoke `create-commit`, and move on. Stop only on hard failures or after the final-validation task. Commits stay local — `create-pr` pushes them at ship time.
+Drive a plan created by `create-plan` to completion. Walk its tasks in order, implement each one, finish it with `finish_task.sh` — which ticks its checkbox in `PLAN.md` and commits — and move on. Stop only on hard failures or after the final-validation task. Commits stay local — `create-pr` pushes them at ship time.
 
 A plan that went through `tdd-plan` (a **TDD plan** — `PLAN.md` carries a `Tests-commit:`) arrives with its tests already written, red-proven and pending on the plan's branch. Its committed tests are the contract: each task strips its own stickers and makes those tests pass through production code.
 
@@ -17,7 +19,7 @@ Task state lives in **two places**:
 1. **The plan files** (`PLAN.md` checkboxes, plan `Status:`) — the persistent source of truth, committed to git, updated only via the scripts (`mark_task_done.py`, `set_plan_status.py`).
 2. **The harness task tracker** — whatever live todo/task tools this session provides (e.g. `TaskCreate`/`TaskUpdate`, or `TodoWrite` in older harnesses) — an ephemeral in-session mirror that gives the user real-time visibility.
 
-The sync rule, stated once: **every file-state change flips the matching tracker entry in the same step; exactly one tracker entry is in-progress at a time; on any disagreement the files win** — re-seed the tracker from `list_tasks.py`. Steps below marked *(sync)* are where this happens.
+The sync rule, stated once: **seed the tracker once, then mark an entry completed when its task's commit lands; on any disagreement the files win** — re-seed the tracker from `list_tasks.py`. Steps below marked *(sync)* are where this happens.
 
 ## Arguments
 
@@ -55,7 +57,7 @@ Branch by the plan's `Status:`:
 
 - **`tests-ready`** — `tdd-plan` cut the branch, committed the tests and opened the draft PR. `git switch <branch>` to the branch `PLAN.md`'s `Branch:` names, if not already on it.
 - **`in-progress`, on the branch `Branch:` names** — a re-entry; branch and status are already in place.
-- **`draft` or `ready`** — no tests exist yet. On a `medium`, `large` or `high` risk plan, ask via `AskUserQuestion` whether to run `tdd-plan` first (recommended) or implement without it; on `tdd-plan`, hand off and stop. Otherwise cut the branch per `~/.claude/skills/shared/plan-branch.md`.
+- **`draft` or `ready`** — no tests exist yet. On a `large` or `high` risk plan, ask via `AskUserQuestion` whether to run `tdd-plan` first (recommended) or implement without it; on `tdd-plan`, hand off and stop. Otherwise cut the branch per `~/.claude/skills/shared/plan-branch.md`.
 
 Unless re-entering, set the status to `in-progress` — the flip lands in the next task's commit:
 
@@ -84,7 +86,6 @@ For each pending non-final task, repeat Phase 4.
 
 For the current task:
 
-0. **Mark the task in-progress in the tracker** *(sync)* before doing anything else.
 1. **Read the task file** in full. Pay attention to `Depends on`, `Goal`, `Files`, `Acceptance`, `Steps`, `Suggested commit`, and any `Notes`.
 2. **Re-read the listed files** so your changes integrate with current code rather than the snapshot the planner saw.
 3. **Execute the Steps**:
@@ -98,24 +99,21 @@ For the current task:
    - `impl` tasks on other plans use RED → GREEN → REFACTOR. Write failing tests first, each one non-vacuous and tight per `~/.claude/skills/shared/non-vacuous-tests.md`; implement the minimal change; clean up while keeping tests green.
    - `checklist` tasks are non-code work. Run the listed steps in order.
 4. **Verify Acceptance with evidence**. Every checkbox under `## Acceptance` must be demonstrably satisfied per the task's `Evidence:` line — actually produce the artifact (run the test and capture its output, take the screenshot, pull the log excerpt) and include it in the task report. On a TDD plan the red run from RED and the green run from GREEN are the test evidence. Code that compiles or "looks right" is not evidence. If anything is unmet, fix it before continuing; do **not** mark a task done while acceptance fails. (On CI-gated projects, see "When CI is the test gate" below.)
-5. **On a TDD plan, check the tests**:
+5. **Finish the task** with one call. It checks the tests on a TDD plan, stages the paths you name, ticks the task's box, stages `PLAN.md` and commits, so the checkbox lands in the same commit as the task's code change:
    ```bash
-   python3 ~/.claude/skills/tdd-plan/scripts/check_tests.py <slug>
+   bash ~/.claude/skills/implement-plan/scripts/finish_task.sh <slug> <task-id> "<subject>" ["<body>"] -- <every path this task changed>
    ```
-   It must print `violations=0`. A violation means a test file changed beyond its stickers: restore it (`git restore --source=HEAD -- <path>`, then strip this task's stickers again) and reach green through production code — or, when the test itself is wrong, take the amendment path under Failure handling.
-6. **Stage only the files this task changed.** `git add <specific paths>`. Never `git add -A`.
-7. **Check the task box in PLAN.md**:
-   ```bash
-   python3 ~/.claude/skills/implement-plan/scripts/mark_task_done.py <slug> <task-id>
-   ```
-8. **Stage `PLAN.md` too** so the checkbox lands in the same commit as the task's code change.
-9. **Commit via the `create-commit` skill.** Use the task's `Suggested commit:` line as the starting point for the subject; only override the suggested type/scope if the actual diff demands it.
-10. **Mark the task completed in the tracker** *(sync)* — the same moment the `PLAN.md` checkbox is committed.
-11. Briefly report: `TASK-NNN done → <commit hash> <subject>`. Then move to the next pending task.
+   `<subject>` is the task's `Suggested commit:` line; override its type or scope only when the actual diff demands it. The script appends the branch's ticket reference by `create-commit`'s rules.
+
+   On a TDD plan it must print `violations=0`. A violation stops it before anything is staged, and means a test file changed beyond its stickers: restore it (`git restore --source=HEAD -- <path>`, then strip this task's stickers again) and reach green through production code — or, when the test itself is wrong, take the amendment path under Failure handling. Then run the script again.
+6. **Mark the task completed in the tracker** *(sync)*.
+7. Report the script's last line — `TASK-NNN done → <commit hash> <subject>` — then move to the next pending task.
 
 #### Failure handling
 
-- **Test won't pass / acceptance can't be met**: stop. Report what you tried, what failed, and the smallest follow-up the user should approve. Do not check the box, do not commit a partial result, do not skip to the next task. Leave the task's tracker entry in-progress so it reflects where work halted.
+Every stop ends by naming the resume command — `/implement-plan <slug>` — which re-enters on this skill's model and effort; a plain reply continues on the session's.
+
+- **Test won't pass / acceptance can't be met**: stop. Report what you tried, what failed, and the smallest follow-up the user should approve. Do not check the box, do not commit a partial result, do not skip to the next task.
 - **A committed test looks wrong** (TDD plans) — it asserts something the plan contradicts, or calls a signature the task can't provide: stop and show the user the test, the reason, and the exact change via `AskUserQuestion`. Approved → make only that change, commit it on its own via `create-commit` as `test(<scope>): amend <task-id> — <reason>`, then resume the task. Declined → the test stands, and production code satisfies it.
 - **Files have drifted from the plan**: if the listed file no longer exists or the structure has changed, update your approach to match the current code and proceed. Note the divergence in your status update.
 - **Task has unresolved dependency**: every dependency listed in `Depends on:` must already be `done`. If not, something is out of order — stop and ask.
@@ -144,9 +142,9 @@ Some projects cannot build or run tests locally (platform-bound toolchains — c
 Once all non-final tasks are checked:
 
 1. **On a TDD plan, settle new test review comments** (see above) — an amendment may send you back to a task.
-2. **Mark the final-validation task in-progress in the tracker** *(sync)*, then read the final-validation task file.
+2. Read the final-validation task file.
 3. Run every check listed under `## Steps` (analyzers, full test suite, manual smoke, acceptance-criteria walk, etc.) — or their CI-pending treatment on CI-gated projects.
-4. If anything fails, stop and report. Do **not** mark the plan done. Leave the final-validation tracker entry in-progress.
+4. If anything fails, stop and report. Do **not** mark the plan done.
 5. If everything passes (or is explicitly CI-pending):
    ```bash
    python3 ~/.claude/skills/implement-plan/scripts/mark_task_done.py <slug> <final-task-id>
@@ -157,8 +155,8 @@ Once all non-final tasks are checked:
 7. Report the outcome — tasks completed, commits created, plan `Status:` now `done`, any CI-pending criteria, and every test amendment (the `amendments` list from `check_tests.py`) — then point to the next step:
    ```
    Plan '<slug>' implemented: <N> tasks, <M> local commits, <K> test amendments.
-   Harden it:  review-plan <slug>   (adversarial pass before the PR)
-   Ship it:    ship-plan <slug>     (pushes, readies the PR, merges)
+   Harden it:  /clear, then /review-plan <slug>   (adversarial pass before the PR)
+   Ship it:    /clear, then /ship-plan <slug>     (pushes, readies the PR, merges)
    ```
 
 ## Behaviour Constraints
@@ -171,6 +169,6 @@ Once all non-final tasks are checked:
 - **Don't invent tasks.** If something is missing from the plan, stop and ask whether to extend the plan via `add_task.py` before doing the extra work.
 - **Don't skip acceptance checks.** Marking a box without verifying is worse than failing the task — it silently lies about plan state.
 - **Don't edit `RESEARCH.md`, `DECISIONS.md`, or task files** during implementation. They are the planning record. The only plan-directory file you mutate is `PLAN.md` (checkboxes and Status).
-- **Use the `create-commit` skill** rather than calling git commit directly — it handles the project's Conventional Commits format and ticket handling.
+- **Task commits go through `finish_task.sh`; every other commit goes through the `create-commit` skill** (a test amendment, `chore: finalize <slug>`) — both apply the project's Conventional Commits format and ticket handling.
 - **Stage explicitly.** `git add <specific paths>` only — never `git add -A`/`.`.
 - **Keep the two task layers in sync** per the rule under "Task tracking" — the *(sync)* markers in the workflow are the complete set of sync points.

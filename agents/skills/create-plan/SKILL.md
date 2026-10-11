@@ -2,6 +2,8 @@
 name: create-plan
 description: Author an implementation plan — a PLAN.md dashboard plus per-task files under docs/artifacts/plans/<slug>/ — before writing code. Use when the task is ambiguous, spans multiple files, or carries non-trivial risk, when the user asks to plan first, or to turn one epic phase into a plan (--epic/--phase). Skip for single-line fixes with obvious scope.
 argument-hint: "[--epic <NN> --phase <NN.M>] [<path-to-existing-exploration-file>]"
+model: opus
+effort: high
 ---
 
 # Create Plan
@@ -27,7 +29,7 @@ Before interviewing the user, gather enough context to ask intelligent questions
 6. Check recent git log for related changes: `git log --oneline -20`.
 7. Note: files likely to change, existing patterns to follow, constraints, and any uncertainty.
 
-Prefer the `Explore` subagent for broad or cross-file research.
+Prefer the `Explore` subagent for broad or cross-file research, and name `model: haiku` on the call — Explore otherwise inherits the session model. A research question that needs judgement across files takes `sonnet`.
 
 Do **not** start the user interview until exploration is complete.
 
@@ -70,7 +72,7 @@ Walk design branches. If two approaches exist, reason through both and pick one 
 | `large` | Multi-day, architectural change, significant test work |
 | `high` | Critical path, infrastructure, or breaking change |
 
-RESEARCH.md is required for `medium`, `large`, and `high` risk plans. `init_plan.py` creates it automatically based on `--risk`.
+RESEARCH.md is required for `large` and `high` risk plans; `init_plan.py` creates it automatically based on `--risk`. A smaller plan keeps its findings in `PLAN.md`'s Research Summary.
 
 #### Task Numbering
 
@@ -147,13 +149,13 @@ This step is complete only when a grep across the plan dir finds **no remaining 
 
 ### Phase 5 — Handoff
 
-Report the plan path, task count, and risk tier, then point to the next step:
+Report the plan path, task count, and risk tier, then point to the next step. Each phase starts in a fresh context — the plan dir carries everything it needs:
 
 ```
 Plan '<slug>' created: <N> tasks, risk <tier>.
-Validate it:   validate-plan <slug>    (recommended for medium+ risk)
-Write tests:   tdd-plan <slug>         (recommended for medium+ risk)
-Implement it:  implement-plan <slug>
+Validate it:   /clear, then /validate-plan <slug>    (recommended for large/high risk, or when review-plan will be skipped)
+Write tests:   /clear, then /tdd-plan <slug>         (recommended for large/high risk)
+Implement it:  /clear, then /implement-plan <slug>
 ```
 
 ---
@@ -163,7 +165,7 @@ Implement it:  implement-plan <slug>
 ```
 docs/artifacts/plans/<slug>/
   PLAN.md              # task checkbox dashboard + Epic:/Phase: link fields (single source of task state)
-  RESEARCH.md          # medium/large/high only
+  RESEARCH.md          # large/high only
   DECISIONS.md         # optional — only when ≥2 real options were weighed
   tasks/
     TASK-001-<slug>.md
