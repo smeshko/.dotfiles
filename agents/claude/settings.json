@@ -1,13 +1,13 @@
 {
   "cleanupPeriodDays": 1095,
+  "env": {
+    "CLAUDE_CODE_SUBAGENT_MODEL": "haiku"
+  },
   "includeCoAuthoredBy": false,
   "permissions": {
     "allow": []
   },
   "model": "opus",
-  "env": {
-    "CLAUDE_CODE_SUBAGENT_MODEL": "haiku"
-  },
   "hooks": {
     "PreToolUse": [
       {
@@ -92,7 +92,7 @@
       "effortLevel": "xhigh"
     },
     "claude-opus-5-5": {
-      "effortLevel": "xhigh"
+      "effortLevel": "medium"
     }
   },
   "promptSuggestionEnabled": false,
