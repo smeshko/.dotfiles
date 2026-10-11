@@ -2,6 +2,8 @@
 name: validate-plan
 description: Adversarially validate a freshly-authored plan before implementation — challenge it against the codebase and its own coherence, then apply the real findings by editing the plan in place. Use between create-plan and tdd-plan (or implement-plan) when the user says "validate the plan" or "sanity-check the plan". (Post-implementation hardening of the branch is review-plan, not this.)
 argument-hint: [<plan-slug>]
+model: sonnet
+effort: medium
 ---
 
 # Validate Plan
@@ -48,7 +50,7 @@ mkdir -p docs/artifacts/plans/<slug>/validation
 
 ### Phase 3 — Round 1
 
-Run the round per the shared protocol, recording to `validation/round-1.md` from `references/round.md.tmpl`. Focus text:
+Run the round per the shared protocol — its gate is `next_round.py <slug> validation` — recording to `validation/round-1.md` from `references/round.md.tmpl`. Focus text:
 
 ```
 /codex-local:adversarial-review --wait --scope working-tree Validate a plan, not a code change. The untracked work in this working tree is docs/artifacts/plans/<slug>/ — PLAN.md, RESEARCH.md (if present), DECISIONS.md (if present), and every file in tasks/. Read them in full, then read the referenced source files to ground your critique in current code.
@@ -102,13 +104,15 @@ For each `apply` row, in table order, make the edit and record the location(s) i
 
 ### Phases 6–7 — Rounds 2 and 3
 
-Per the shared protocol. Round-2 focus text:
+A further round runs only when the round before it applied a `high`-severity finding; otherwise go to Phase 8. This narrows the shared protocol's "action rows → next round" rule for validation: later rounds mostly re-find low-severity issues and repair the earlier rounds' own edits, and `review-plan` still judges the code.
+
+When a round does run, gate it (`next_round.py <slug> validation`) and run it per the shared protocol. Round-2 focus text:
 
 ```
 /codex-local:adversarial-review --wait --scope working-tree Second pass over the plan. Round-1 findings and triage are in docs/artifacts/plans/<slug>/validation/round-1.md (Codex output verbatim followed by a triage table marking each item apply/defer/reject with rationale and where it landed in the plan). Verify the applied edits are sufficient, push back on any defer or reject rationale you disagree with, and surface anything new — especially issues the plan edits themselves introduced (e.g. a new task creating a dependency cycle, an edited acceptance criterion no longer covered by the final-validation task).
 ```
 
-Round-3 focus text (only if round 2 produced `apply` rows) references both prior round files the same way. If round 3 *still* produces `apply` rows, stop and ask the user — three rounds of real plan defects signals the plan needs a rewrite (`create-plan`), not more patching.
+Round-3 focus text (only if round 2 applied a `high`-severity finding) references both prior round files the same way. If round 3 *still* produces `apply` rows, stop and ask the user — three rounds of real plan defects signals the plan needs a rewrite (`create-plan`), not more patching.
 
 ### Phase 8 — Write VALIDATION.md
 
@@ -121,7 +125,8 @@ Compose `docs/artifacts/plans/<slug>/VALIDATION.md` from `references/VALIDATION.
 ### Phase 9 — Report
 
 ```
-Plan validation complete: <N> rounds, <M> applied, <K> deferred, <J> rejected. Ready for /tdd-plan (or /implement-plan when the plan skips tests-first).
+Plan validation complete: <N> rounds, <M> applied, <K> deferred, <J> rejected.
+Next: /clear, then /implement-plan <slug> (or /tdd-plan <slug> first on a large/high risk plan).
 ```
 
 ## Behaviour Constraints
@@ -144,7 +149,7 @@ docs/artifacts/plans/<slug>/
   tasks/               # possibly edited / extended
   validation/
     round-1.md         # Codex verbatim + triage table
-    round-2.md
-    round-3.md         # only if needed
+    round-2.md         # only after a high-severity apply in round 1
+    round-3.md         # only after a high-severity apply in round 2
   VALIDATION.md        # paste-ready summary, parallels REVIEW.md
 ```

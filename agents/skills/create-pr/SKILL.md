@@ -1,12 +1,18 @@
 ---
 name: create-pr
-description: Open a GitHub pull request from the current branch via the gh CLI. Use when the user asks to open/create/submit a PR, raise a pull request, or push for review.
-argument-hint: <--base <base-branch>> <--draft>
+description: Open a GitHub pull request from the current branch via the gh CLI. Use when the user asks to open/create/submit a PR, raise a pull request, or push for review. It runs without the conversation, so pass as arguments the ticket id and any context the commits don't show.
+argument-hint: "<--base <base-branch>> <--draft> <ticket id and context>"
+context: fork
+background: false
+model: sonnet
+effort: low
 ---
 
 # Create Pull Request
 
 Open a GitHub pull request from the current branch.
+
+This skill runs as a subagent: it sees the repo and its arguments, not the conversation, and it cannot ask the user. Free text in the arguments is context for the title and body. Where a step needs the user, **hand back**: stop, and return what you found plus the exact question or next action.
 
 ## Workflow
 
@@ -21,12 +27,12 @@ The script prints, in order:
 - `BRANCH` — current branch
 - `BASE` — base branch resolved from `origin/HEAD` (or `(unknown)` if not set — pass `--base` to step 3 in that case)
 - `EXISTING PR` — URL of an open PR for this branch if one exists, else `(none)`
-- `LINEAR ISSUE` — the issue id embedded in the branch name, else the `Linear:` field of the plan whose `Branch:` is this branch, else `(none — not a Linear-tracked branch)`. On `(none)`, a ticket id the user named in this conversation stands in for it.
+- `LINEAR ISSUE` — the issue id embedded in the branch name, else the `Linear:` field of the plan whose `Branch:` is this branch, else `(none — not a Linear-tracked branch)`. On `(none)`, a ticket id passed in the arguments stands in for it.
 - `COMMITS` — commits since base, oldest first (`<sha> <subject>`)
 - `FILES` — files changed vs base
 - `PUSH STATUS` — `unpushed | up-to-date | ahead (N) | behind-remote (N) | diverged`
 
-**If `PUSH STATUS` is `behind-remote` or `diverged`, stop.** Ask the user to reconcile (pull/rebase) before opening the PR.
+**If `PUSH STATUS` is `behind-remote` or `diverged`, hand back:** the user reconciles (pull/rebase) before the PR opens.
 
 **Before anything is pushed, check the tests:**
 
@@ -34,7 +40,7 @@ The script prints, in order:
 python3 ~/.claude/skills/tdd-plan/scripts/check_tests.py --final
 ```
 
-`tdd=none` → not a TDD plan; carry on. `violations=0` → carry on, keeping its `amendments` list for Step 2. Any violation → stop and show it to the user: a test changed outside a sticker deletion or an approved amendment, or a sticker is still pending.
+`tdd=none` → not a TDD plan; carry on. `violations=0` → carry on, keeping its `amendments` list for Step 2. Any violation → hand back with it: a test changed outside a sticker deletion or an approved amendment, or a sticker is still pending.
 
 **If `EXISTING PR` is not `(none)`:** check `gh pr view <url> --json isDraft`. If it's a draft for this branch (`tdd-plan` opens one per TDD plan), this skill's job is to *finish* it — push the local commits (`git push`), compose the real title/body (Step 2), apply with `gh pr edit <number> --title ... --body ...`, then flip with `gh pr ready <number>`, skipping Step 3. If it's a non-draft PR, stop and report the URL — don't create a duplicate.
 
@@ -82,8 +88,8 @@ Done when: the issue's attachments include the PR URL, or the miss is reported.
 
 ### Step 5: Report
 
-Show the user the PR URL and the Linear link outcome. If the repo runs CI on PRs, offer to watch it
-(`gh pr checks <number> --watch` as a background task) — on projects where CI is
+Return the PR URL and the Linear link outcome, then name the next step. If the repo runs CI on PRs, that is watching it
+(`gh pr checks <number> --watch`) — on projects where CI is
 the only build/test gate, a green run is what proves the plan's CI-pending
 acceptance criteria (see `implement-plan`); tick them on the branch before
 merging. For plan branches, `ship-plan` archives, watches CI, merges and cleans up; by hand, `archive-plan` runs before the merge.

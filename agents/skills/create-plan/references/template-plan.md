@@ -22,7 +22,7 @@ One sentence describing the outcome the user wants.
 
 ## Research Summary
 
-Key findings from exploration. Link to `RESEARCH.md` for `medium`/`large`/`high` risk plans.
+Key findings from exploration. Link to `RESEARCH.md` for `large`/`high` risk plans.
 
 ## Decisions
 

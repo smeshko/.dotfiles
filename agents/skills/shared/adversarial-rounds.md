@@ -8,19 +8,26 @@ Read `Risk:` from `PLAN.md` before round 1 and spend review effort accordingly �
 
 | Plan risk | Round 1 reviewer(s) | Max rounds |
 |---|---|---|
-| `tiny` / `small` | one clean `general-purpose` subagent with the adversarial framing (skip Codex — save its quota) | 2 |
+| `tiny` / `small` | one reviewer subagent (skip Codex — save its quota) | 2 |
 | `medium` | Codex (current default) | 3 |
-| `large` / `high` | Codex **and** an independent subagent lens in parallel; merge and dedupe findings before triage | 3 |
+| `large` / `high` | Codex **and** a reviewer subagent as an independent lens, in parallel; merge and dedupe findings before triage | 3 |
 
 Rounds 2+ always use a single reviewer (Codex when available). Record which reviewer ran in each round header.
 
+**Reviewer subagent** — a clean `general-purpose` subagent spawned with `model: opus` and `effort: high`, given the adversarial framing and the round's focus text. Name both on the call: a subagent spawned without them runs on the session's fallback subagent model.
+
 ## Running a round
 
-1. Invoke `/codex-local:adversarial-review --wait <scope flags> <focus text>` in the foreground so the verbatim output flows back into the conversation. The focus text comes from the calling skill's phase.
-2. Write `round-<N>.md` in the skill's round directory from its `references/round.md.tmpl`: header filled in, Codex output pasted **verbatim** under `## Codex output`, `## Triage` left empty for now.
-3. **Review-only inside a round.** No edits while a round runs — the slash command is review-only by its own rules. Edits happen only in the skill's action loop.
+1. Gate the round with the calling skill's round directory (`validation` or `reviews`):
+   ```bash
+   python3 ~/.claude/skills/shared/scripts/next_round.py <slug> <validation|reviews>
+   ```
+   It prints `round=<N>`, `cap=<M>` and `risk=<tier>`. Exit 1 means round N would pass the cap: stop and take it to the user. Add `--force` only once the user says to continue.
+2. Invoke `/codex-local:adversarial-review --wait <scope flags> <focus text>` in the foreground so the verbatim output flows back into the conversation. The focus text comes from the calling skill's phase.
+3. Write `round-<N>.md` in the skill's round directory from its `references/round.md.tmpl`: header filled in, Codex output pasted **verbatim** under `## Codex output`, `## Triage` left empty for now.
+4. **Review-only inside a round.** No edits while a round runs — the slash command is review-only by its own rules. Edits happen only in the skill's action loop.
 
-**Codex unavailable** (plugin missing, or usage-limited): run the round with a clean `general-purpose` subagent given the same adversarial framing and focus text, record it identically, and note `reviewer: subagent` in the round header.
+**Codex unavailable** (plugin missing, or usage-limited): run the round with a reviewer subagent, record it identically, and note `reviewer: subagent` in the round header.
 
 ## Triage — a contract, not a note
 
@@ -37,7 +44,7 @@ Each subsequent round's focus text must reference the prior round file(s) by pat
 
 - Round 2 yields only `defer`/`reject` → done; write the summary file.
 - Round 2 yields action rows → run the action loop, then round 3 with both prior rounds in focus.
-- Round 3 still yields action rows → **stop and ask the user**. Three rounds of real findings is a structural signal, not something to grind out — offer act-and-stop, act-and-continue, or stepping back to the authoring skill. Never auto-run a fourth round.
+- Round 3 still yields action rows → **stop and ask the user**. Three rounds of real findings is a structural signal, not something to grind out — offer act-and-stop, act-and-continue, or stepping back to the authoring skill. A fourth round runs only on the user's say-so, through the gate's `--force`.
 
 ## The summary file
 

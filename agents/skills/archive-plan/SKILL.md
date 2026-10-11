@@ -1,7 +1,11 @@
 ---
 name: archive-plan
-description: Archive a finished plan before its PR merges — move the plan dir into the archive, committing the move on the plan's branch where plans are tracked — then, after the merge, return to staging, delete the local branch and roll up Linear. Use when the user says "archive the plan" or "merged, clean up".
-argument-hint: [<plan-slug>]
+description: Archive a finished plan before its PR merges — move the plan dir into the archive, committing the move on the plan's branch where plans are tracked — then, after the merge, return to staging, delete the local branch and roll up Linear. Use when the user says "archive the plan", or "merged, clean up" (pass `after-merge`).
+argument-hint: "[<plan-slug>] [after-merge]"
+context: fork
+background: false
+model: haiku
+effort: low
 ---
 
 # Archive Plan
@@ -12,6 +16,8 @@ Plan bookkeeping on both sides of the merge:
 - **After the merge**: return to `staging`, delete the local branch, roll up Linear.
 
 `ship-plan` runs Archive as its first step, so the archive commit rides the PR's one CI run, and runs After the merge as its last.
+
+This skill runs as a subagent: it sees the repo and its arguments, not the conversation, and it cannot ask the user. The arguments pick the section — `after-merge` runs **After the merge**, anything else runs **Archive**. Where a step needs the user's decision, **hand back**: stop, and return what you found plus the exact question.
 
 ## Archive
 
@@ -51,7 +57,7 @@ branch=<feature-branch>
 - `tracked=no` → nothing to commit; the archive is local.
 - `tracked=yes` → `git add <from> <to>`, then commit via `create-commit` with the subject `chore: archive plan <slug>`. Uncommitted edits inside the plan dir, such as ticked checkboxes, go in the same commit. The next push carries it into the PR: `create-pr` pushes a new branch, otherwise `git push`.
 
-Done when: the plan dir sits under `archive/`, and for a tracked plan `git status --porcelain -- docs/artifacts/plans` is empty.
+Done when: the plan dir sits under `archive/`, and for a tracked plan `git status --porcelain -- docs/artifacts/plans` is empty. Return the script's `key=value` lines.
 
 ## After the merge
 
@@ -64,7 +70,7 @@ git checkout staging && git pull --ff-only origin staging
 git branch -d <branch>
 ```
 
-`<branch>` is the script's `branch=` value, or the `Branch:` field of the archived `PLAN.md`. A dirty tree blocks the checkout: ask the user to commit, stash or discard, and act on the answer. When `git branch -d` refuses (commonly a squash merge, whose commits aren't ancestors of `staging`), leave the branch and hand the user `git log staging..<branch>` to check, then `git branch -D <branch>` to run.
+`<branch>` is the script's `branch=` value, or the `Branch:` field of the archived `PLAN.md`. A dirty tree blocks the checkout: hand back with the `git status --porcelain` output, for the user to commit, stash or discard. When `git branch -d` refuses (commonly a squash merge, whose commits aren't ancestors of `staging`), leave the branch and hand the user `git log staging..<branch>` to check, then `git branch -D <branch>` to run.
 
 ### Step 2: Linear roll-up (only if the plan was epic-linked and Linear is wired)
 
@@ -81,11 +87,11 @@ See `~/.claude/skills/shared/linear-integration.md` for the model. The merge alr
 
 ### Step 3: Report
 
-Tell the user the archive path, the branch-deletion outcome, and the Linear writes made.
+Return the archive path, the branch-deletion outcome, and the Linear writes made.
 
 ## Behaviour Constraints
 
 - **Commits land through the PR.** This skill never pushes to `staging`.
-- **The caller decides a dirty tree.** Ask; never stash on your own.
+- **The caller decides a dirty tree.** Hand back; never stash on your own.
 - **Remote branches belong to GitHub.** Its auto-delete-on-merge (or manual cleanup) handles them.
 - **Archive is bookkeeping.** Tests, lint and CI belong to the caller; task checkboxes are archived as they stand.
