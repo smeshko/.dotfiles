@@ -69,11 +69,11 @@ def state(name, idents):
 
 
 def create(team_key, path):
-    t = gql('query($k:String!){teams(filter:{key:{eq:$k}}){nodes{id states{nodes{id name}} labels(first:200){nodes{id name}}}}}',
+    t = gql('query($k:String!){teams(filter:{key:{eq:$k}}){nodes{id states{nodes{id name}} labels(first:100){nodes{id name}}}}}',
             {"k": team_key})["teams"]["nodes"][0]
     backlog = next(s["id"] for s in t["states"]["nodes"] if s["name"] == "Backlog")
     labels = {l["name"]: l["id"] for l in t["labels"]["nodes"]}
-    for l in gql("{issueLabels(first:200){nodes{id name team{id}}}}")["issueLabels"]["nodes"]:
+    for l in gql("{issueLabels(first:100){nodes{id name team{id}}}}")["issueLabels"]["nodes"]:
         if l["team"] is None:
             labels.setdefault(l["name"], l["id"])
     for item in json.load(open(path)):
