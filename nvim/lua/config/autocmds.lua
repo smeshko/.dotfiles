@@ -28,3 +28,15 @@ vim.api.nvim_create_autocmd("TermResponse", {
     vim.defer_fn(function() settling = false end, 3500)
   end,
 })
+
+-- Markdown is edited as plain text: don't hide link targets, backticks, `**` etc.,
+-- and show no diagnostics.
+-- (LazyVim sets conceallevel=2 globally; rendering lives in <leader>mv instead.)
+vim.api.nvim_create_autocmd("FileType", {
+  group = vim.api.nvim_create_augroup("markdown_plain", { clear = true }),
+  pattern = "markdown",
+  callback = function(ev)
+    vim.opt_local.conceallevel = 0
+    vim.diagnostic.enable(false, { bufnr = ev.buf }) -- no lint/LSP warnings in markdown
+  end,
+})
