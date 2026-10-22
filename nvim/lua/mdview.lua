@@ -162,6 +162,25 @@ local function wrap(text, width)
   return ranges
 end
 
+-- Like wrap(), but also breaks words longer than `width` (table cells must fit).
+local function wrap_hard(text, width)
+  local out = {}
+  for _, r in ipairs(wrap(text, width)) do
+    local from, w = r[1], 0
+    for _, pos in ipairs(vim.str_utf_pos(text:sub(r[1], r[2]))) do
+      local i = r[1] + pos - 1
+      local cw = strw(text:sub(i, i + vim.str_utf_end(text, i)))
+      if w + cw > width and i > from then
+        out[#out + 1] = { from, i - 1 }
+        from, w = i, 0
+      end
+      w = w + cw
+    end
+    out[#out + 1] = { from, r[2] }
+  end
+  return out
+end
+
 ---------------------------------------------------------------------------
 -- Blocks
 ---------------------------------------------------------------------------
@@ -376,8 +395,8 @@ function M.render(src, width)
         local cells = {}
         for cell in child:iter_children() do
           if cell:type() == "pipe_table_cell" then
-            local body, marks = inline((vim.treesitter.get_node_text(cell, text):gsub("^%s+", ""):gsub("%s+$", "")))
-            cells[#cells + 1] = { body = body, marks = marks }
+            local body, marks, links = inline((vim.treesitter.get_node_text(cell, text):gsub("^%s+", ""):gsub("%s+$", "")))
+            cells[#cells + 1] = { body = body, marks = marks, links = links }
           end
         end
         rows[#rows + 1] = { cells = cells, header = t == "pipe_table_header", src = child:start() }
@@ -399,33 +418,84 @@ function M.render(src, width)
         if r.cells[i] then widths[i] = math.max(widths[i], strw(r.cells[i].body)) end
       end
     end
+    -- Fit the window: each column is "│ " .. cell .. " ", plus the closing "│".
+    -- Columns narrower than a fair share keep their width; the rest split what's
+    -- left, and their cells wrap onto more lines.
+    local left, open, total = width - prefix_width(c) - (3 * ncol + 1), {}, 0
+    for i = 1, ncol do total, open[i] = total + widths[i], true end
+    if total > left then
+      local n, changed = ncol, true
+      while changed and n > 0 do
+        changed = false
+        for i = 1, ncol do
+          if open[i] and widths[i] <= math.floor(left / n) then
+            open[i], left, n, changed = false, left - widths[i], n - 1, true
+          end
+        end
+      end
+      local k = 0
+      for i = 1, ncol do
+        if open[i] then
+          k = k + 1
+          widths[i] = math.max(4, math.floor(left / n) + (k <= left % n and 1 or 0))
+        end
+      end
+    end
+
     local function rule(l, m, r)
       local parts = {}
       for i = 1, ncol do parts[i] = string.rep("─", widths[i] + 2) end
       local s = l .. table.concat(parts, m) .. r
       emit(c, s, { { 0, #s, "MdViewBorder" } }, (node:start()))
     end
-    rule("┌", "┬", "┐")
+    local function clip(list, from, to)
+      local res = {}
+      for _, m in ipairs(list or {}) do
+        local s0, e0 = math.max(m[1], from), math.min(m[2], to)
+        if e0 > s0 then res[#res + 1] = { s0 - from, e0 - from, m[3] } end
+      end
+      return res
+    end
+    -- Wrap every cell first: if any row spans several lines, rule between body rows.
+    local multi = false
     for _, r in ipairs(rows) do
-      local parts, marks, len = {}, {}, 0
-      local function put(s, hl)
-        if hl then marks[#marks + 1] = { len, len + #s, hl } end
-        parts[#parts + 1] = s
-        len = len + #s
-      end
-      put("│", "MdViewBorder")
+      r.wrapped, r.height = {}, 1
       for i = 1, ncol do
-        local cell = r.cells[i] or { body = "", marks = {} }
-        local pad = widths[i] - strw(cell.body)
-        local lp = align[i] == "right" and pad or align[i] == "center" and math.floor(pad / 2) or 0
-        put(" " .. string.rep(" ", lp))
-        local start = len
-        put(cell.body, r.header and "MdViewStrong" or nil)
-        for _, m in ipairs(cell.marks) do marks[#marks + 1] = { start + m[1], start + m[2], m[3] } end
-        put(string.rep(" ", pad - lp) .. " ")
-        put("│", "MdViewBorder")
+        local cell = r.cells[i] or { body = "" }
+        r.wrapped[i] = cell.body == "" and { { 1, 0 } } or wrap_hard(cell.body, widths[i])
+        r.height = math.max(r.height, #r.wrapped[i])
       end
-      emit(c, table.concat(parts), marks, r.src)
+      multi = multi or r.height > 1
+    end
+    rule("┌", "┬", "┐")
+    for ri, r in ipairs(rows) do
+      local wrapped = r.wrapped
+      if multi and ri > 1 and not rows[ri - 1].header then rule("├", "┼", "┤") end
+      for li = 1, r.height do
+        local parts, marks, links, len = {}, {}, {}, 0
+        local function put(s, hl)
+          if hl then marks[#marks + 1] = { len, len + #s, hl } end
+          parts[#parts + 1] = s
+          len = len + #s
+        end
+        put("│", "MdViewBorder")
+        for i = 1, ncol do
+          local cell = r.cells[i] or { body = "" }
+          local rg = wrapped[i][li]
+          local from, to = rg and rg[1] - 1 or 0, rg and rg[2] or 0 -- 0-based [from, to)
+          local piece = cell.body:sub(from + 1, to)
+          local pad = widths[i] - strw(piece)
+          local lp = align[i] == "right" and pad or align[i] == "center" and math.floor(pad / 2) or 0
+          put(" " .. string.rep(" ", lp))
+          local start = len
+          put(piece, r.header and piece ~= "" and "MdViewStrong" or nil)
+          for _, m in ipairs(clip(cell.marks, from, to)) do marks[#marks + 1] = { start + m[1], start + m[2], m[3] } end
+          for _, l in ipairs(clip(cell.links, from, to)) do links[#links + 1] = { start + l[1], start + l[2], l[3] } end
+          put(string.rep(" ", pad - lp) .. " ")
+          put("│", "MdViewBorder")
+        end
+        emit(c, table.concat(parts), marks, r.src, links)
+      end
       if r.header then rule("├", "┼", "┤") end
     end
     rule("└", "┴", "┘")
