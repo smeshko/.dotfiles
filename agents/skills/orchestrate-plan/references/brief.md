@@ -39,7 +39,9 @@ Fill every `<placeholder>`; delete a line that does not apply.
 
 **Test runs.**
 - While working, run only the files the task touches and the files that test the sources it changes, with a junit or equivalent reporter, in the foreground with a timeout.
-- Run every full gate and every `git push` through the lock: `<skill-dir>/scripts/with-verify-lock.sh <lock-dir> <lane> <command...>` from the worktree, with a timeout of at least 25 minutes.
+- **Gate model:** <"CI is the full gate": the stage's closing gate is the narrow gate, `<narrow-gate command>` (typecheck, lint, the affected tests), and CI's check on the pushed head is the full one | "local full gates": the full gate runs through the lock>.
+- Run every local full gate and every hooked `git push` through the lock: `<skill-dir>/scripts/with-verify-lock.sh <lock-dir> <lane> <command...>` from the worktree, with a timeout of at least 25 minutes.
+- Pass a per-test timeout of at least 60 s to every local run on a loaded machine: Bun's 5 s default times out process-spawning tests under load.
 - Classify each failure: a test that fails once, in a file this lane does not touch, differs per run and passes alone is a **flake**; a test that fails twice, or sits in files this lane touches or exercises, is **real**. Record the failures of every full run for the report.
 
 **Commits and pushes.**
@@ -70,13 +72,14 @@ Fill every `<placeholder>`; delete a line that does not apply.
 
 **tdd-plan.** The branch name the skill should cut from the worktree HEAD. Prove red: every new test fails on an assertion, none on a crash. Push with `--no-verify` and open the draft PR. Report: branch, commits, PR, test count per task, red proof (command and counts), suite state with stickers on, where drafts or states were saved.
 
-**implement-plan.** Resume at the first pending task. Done means demonstrated: each task's evidence is real output, and the final gate is green. Run the touched tests on the runtime version CI pins too (read it from the CI workflow), since a local-only green has hidden runtime bugs before. The opt-in live tasks stay unticked unless the live gate covers them. Push normally when every other task is done and the gate is green. Report: tasks done of total with shas, each full gate run and what failed, the push and PR head, the runtime demonstration (command and what it showed), the CI-version run.
+**implement-plan.** Resume at the first pending task. When no tdd stage ran, cut the branch from the worktree HEAD, write each task's tests with its code, and open the draft PR after the first task. Done means demonstrated: each task's evidence is real output, and the final gate is green. Run the touched tests on the runtime version CI pins too (read it from the CI workflow), since a local-only green has hidden runtime bugs before. The opt-in live tasks stay unticked unless the live gate covers them. Push normally when every other task is done and the gate is green. Report: tasks done of total with shas, each full gate run and what failed, the push and PR head, the runtime demonstration (command and what it showed), the CI-version run.
 
 **review-plan.** The lane's base for scope. Points to attack, taken from the implementer's report: guards it loosened, decisions it took, the riskiest behaviour change, fragile tests. Always:
 - Audit every `test(...): amend` commit on the branch: each changed an expectation because of the phase's intended behaviour, and none dropped or weakened an assertion. Restore any that did.
 - Approve fixes yourself with this bar: fix real defects in this phase's scope; defer what belongs to a later phase or is a policy choice for the user; reject what is wrong.
 - Spawn the reviewer subagent with `model` and `effort` named, as the shared rounds protocol says.
-- Cap at the protocol's rounds. When the last round still has fixes, apply the high and medium ones, defer the rest, and say which fixes no reviewer has seen.
+- Cap at **2 rounds**, overriding the protocol's 3, and don't stop to ask the user when round 2 still has fixes. Round 2's fixes: apply the high-severity ones, defer the rest as issues, and say which fixes no reviewer has seen.
+- Between fixes, run only the narrow gate. Push once, after the last fix, and read CI's result on that head.
 - **Security lanes:** frame each reviewer's ask as correctness of the boundary — "find inputs the parser or guard misclassifies", "find a path the resolver lets out" — so the review starts in round 1, not after a refusal.
 
 Report: reviewers that ran per round, findings with fixed, deferred and rejected counts, one line per fixed and deferred finding, the verdicts asked for, the final gate, push tries and PR head, what only a live run can confirm.

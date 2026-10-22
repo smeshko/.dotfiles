@@ -42,8 +42,9 @@ Then end your turn and wait for an explicit ok. This is the only stop. Their ans
 ## Step 3: Run the lanes
 
 **Pipeline per lane:** create-plan → tdd-plan → implement-plan → review-plan → live run. `--until` stops every lane after that stage.
-- **tdd-plan:** run it when the plan's `Risk:` is `large` or `high`, the tiers create-plan recommends it for. Otherwise implement-plan cuts the branch.
-- **review-plan:** runs for every tier. It scales its own depth by risk.
+- **tdd-plan:** run it only when the plan's `Risk:` is `high`, or the phase is a security boundary. For `large` and below, implement-plan cuts the branch and writes each task's tests with its code. A separate tdd stage cost about an hour per lane and produced most of the later `test(...): amend` commits.
+- **review-plan:** runs for every tier, **capped at 2 rounds**. Round 2's remaining fixes: apply high severity, defer the rest as issues. A third round's fixes went unreviewed anyway, so it bought churn, not trust.
+- **Push early:** the first stage that commits code opens the draft PR, and every stage pushes when it finishes. CI then checks every stage's head while the next stage works.
 - **Live run:** for each lane with a live path the user granted. It runs the phase's live demonstration in the sandbox. A failure goes to a fix stage (opus, high), then the live run again. Live runs find what reviews miss: a variable never handed to the session, an error naming the wrong limit, a model ID that does not exist.
 
 **Spawning a stage:**
@@ -82,8 +83,9 @@ Next:   <what runs next, per lane>
 
 - **Stall:** a transcript older than 15 minutes with no running process for that lane. The agent ended its turn waiting, on a background run or on its own subagent. Nudge it with SendMessage: stop waiting, read what exists now, finish, report.
 - **Hung run versus slept machine:** a test that took 900 s or more alongside a lid-closed interval in `pmset -g log` is sleep. Rerun it; never debug it.
-- **Retry loop:** a lane on its third full gate run. Ask it for the per-run failure list and the flake-or-real rule from the brief. Cap it at two more runs before it reports.
-- **Load:** parallel full suites starve each other into timeout flakes. One full gate at a time, through the lock. Narrow per-task runs in between. The lock covers this run only: foreign suites (Step 1) still load the machine, so weigh them before calling a red run real. When a lane can never get a clean run under load, run its gate yourself once the machine is quiet. On a quiet machine, a red result is more likely real than a flake.
+- **Retry loop:** a lane whose gate or hooked push failed twice. Never a third local run: when every failure is a known flake or a timeout that passes alone, the lane runs the narrow gate and pushes with `--no-verify`, and CI decides. A real failure goes back to the lane. Act on the first beat that shows it: one failed hooked push in the last run cost about 15 minutes, and there were 11.
+- **CI:** each beat, read every lane PR's checks (`gh pr checks <n>`). A red check on a pushed head is the lane's next task: send it the failing test from `gh run view --log-failed`.
+- **Load:** parallel full suites starve each other into timeout flakes. Any full gate that still runs locally runs one at a time, through the lock. Narrow per-task runs in between. The lock covers this run only: foreign suites (Step 1) still load the machine, so weigh them before calling a red run real. On a quiet machine, a red result is more likely real than a flake.
 - **Killing a run:** kill its `with-verify-lock.sh` wrapper first, then the suite. The lock frees itself only for its own holder, so another lane's lock survives.
 - **Deadline:** when the user sets one, work back from it: cut review rounds, defer what is open, and push by deadline minus CI time plus a margin. Tell each running agent the cut-off.
 
@@ -103,5 +105,8 @@ Print the final board, then:
 - **Flakes:** a known flake that failed in more than one lane's runs, as a ticket worth filing.
 - **Deadline:** met or missed, and the cause of a miss.
 - **Worktrees:** what is left on disk, this run's and others', with the stale ones offered for removal.
+- **Time:** wall clock per lane and per stage, from commit times and transcript ages, and the biggest wait, named (gates, CI, the user, sleep). The next run's changes come from this line.
+
+Kill the `caffeinate` started in Step 1.
 
 Stop there. Shipping is the user's call: `ship-plan` per lane. When the user asks you to run it, follow [`references/shipping.md`](references/shipping.md).
