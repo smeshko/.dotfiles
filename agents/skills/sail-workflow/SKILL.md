@@ -17,12 +17,14 @@ A workflow is **composition**: plain TypeScript that calls stages and routes on 
 
 ```
 .sail/workflows/<workflow>/workflow.ts           default-exports workflow(...)
-.sail/workflows/<workflow>/stages/<stage>/       private: only this workflow's folder may import it
+.sail/workflows/<workflow>/stages/<NN>-<stage>/  private: only this workflow's folder may import it
 .sail/stages/<stage>/                            shared: any workflow may import it
 <stage>/stage.ts  prompt.md  run.sh  templates/*.md
 ```
 
-A stage is named after its folder, and stage names are unique within a run. Put a stage under the workflow until a second workflow needs it, then move it to `.sail/stages/`.
+A stage is named after its folder, less any number prefix (`03-prove-tests` is `prove-tests`), and stage names are unique within a run. Put a stage under the workflow until a second workflow needs it, then move it to `.sail/stages/`.
+
+Prefix every private stage folder with its two-digit position in the workflow, from `00-`, so a listing reads in run order: `00-setup`, `01-plan`, `02-write-tests`. A stage that runs more than once, in a loop or a later round, keeps the position of its first call. Inserting a stage renumbers the folders after it and their imports in `workflow.ts`. Shared stages under `.sail/stages/` take no prefix, since each workflow orders them differently.
 
 ## Steps
 
