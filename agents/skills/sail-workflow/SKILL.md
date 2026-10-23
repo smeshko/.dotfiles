@@ -1,6 +1,6 @@
 ---
 name: sail-workflow
-description: Write or change a sail workflow or stage under `.sail/`: `workflow.ts` composition, agent and script stages, prompts, output schemas, document templates, loops, parallel calls, fake answers. Use when creating a workflow, adding or editing a stage, or wiring stages together.
+description: "Write or change a sail workflow or stage under `.sail/`: `workflow.ts` composition, agent and script stages, prompts, output schemas, document templates, loops, parallel calls, fake answers. Use when creating a workflow, adding or editing a stage, or wiring stages together."
 ---
 
 # Writing a sail workflow

@@ -1,6 +1,6 @@
 ---
 name: sail
-description: Operate the sail CLI in a repository with a `.sail/`: start a run from a ticket or pull request, inspect, resume, stop or seed runs, watch workflows, manage queues, open the dashboard, or call a port. Use when the user mentions sail, a run id, `.sail-runs/`, or `sail <command>`.
+description: "Operate the sail CLI in a repository with a `.sail/`: start a run from a ticket or pull request, inspect, resume, stop or seed runs, watch workflows, manage queues, open the dashboard, or call a port. Use when the user mentions sail, a run id, `.sail-runs/`, or `sail <command>`."
 ---
 
 # sail

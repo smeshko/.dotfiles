@@ -1,6 +1,6 @@
 ---
 name: sail-init
-description: Set up sail in a repository: `sail init`, config, fakes, a first workflow proven at $0, then the switch to Linear, GitHub, Claude Code and git worktrees.
+description: "Set up sail in a repository: `sail init`, config, fakes, a first workflow proven at $0, then the switch to Linear, GitHub, Claude Code and git worktrees."
 disable-model-invocation: true
 ---
 
