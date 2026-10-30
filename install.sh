@@ -203,7 +203,17 @@ fi
 # --- herdr -----------------------------------------------------------------------------------
 say "herdr"
 link herdr/config.toml "$HOME/.config/herdr/config.toml"
-link herdr/plugins.json "$HOME/.config/herdr/plugins.json"
+# plugins.json is herdr's registry and records absolute plugin paths, so it is machine state, not tracked.
+# Turn the old symlink into a plain file (keeping what it registered); see "herdr plugins" below.
+herdr_registry="$HOME/.config/herdr/plugins.json"
+if [ -L "$herdr_registry" ]; then
+  if [ -e "$herdr_registry" ]; then
+    cp "$herdr_registry" "$herdr_registry.tmp" && mv "$herdr_registry.tmp" "$herdr_registry"
+  else
+    rm "$herdr_registry"
+  fi
+  note "unlinked $herdr_registry (now machine-local)"
+fi
 # The helper scripts now live in ~/.dotfiles/bin; drop the old ~/.local/bin copies.
 for s in herdr-equalize-panes herdr-worktree-tab; do
   [ -L "$HOME/.local/bin/$s" ] || retire "$HOME/.local/bin/$s"
@@ -370,6 +380,32 @@ if len(kept) != len(groups):
         json.dump(s, f, indent=2)
         f.write("\n")
     print("    removed herdr's duplicate SessionStart hook from Claude settings")
+PY
+
+  # --- herdr plugins -------------------------------------------------------------------------
+  # Each herdr/plugins/<name>/ with a herdr-plugin.toml is linked in place. herdr reads the manifest
+  # live, so plugins already linked here are left alone (re-linking would reset a disabled one).
+  # Plugins linked from herdr/plugins/ whose directory is gone are unlinked.
+  python3 - "$DOTFILES/herdr/plugins" <<'PY'
+import json, os, subprocess, sys
+root = sys.argv[1]
+listed = json.loads(subprocess.run(["herdr", "plugin", "list", "--json"], capture_output=True,
+                                   text=True, check=True).stdout)["result"]["plugins"]
+linked = {os.path.realpath(p["plugin_root"]): p["plugin_id"] for p in listed if p.get("plugin_root")}
+wanted = set()
+if os.path.isdir(root):
+    for name in sorted(os.listdir(root)):
+        d = os.path.realpath(os.path.join(root, name))
+        if not os.path.isfile(os.path.join(d, "herdr-plugin.toml")):
+            continue
+        wanted.add(d)
+        if d not in linked:
+            subprocess.run(["herdr", "plugin", "link", d], stdout=subprocess.DEVNULL, check=True)
+            print(f"    linked herdr plugin {name}")
+for d, pid in linked.items():
+    if d.startswith(os.path.realpath(root) + os.sep) and d not in wanted:
+        subprocess.run(["herdr", "plugin", "unlink", pid], stdout=subprocess.DEVNULL, check=True)
+        print(f"    unlinked herdr plugin {pid} (directory gone)")
 PY
 fi
 
