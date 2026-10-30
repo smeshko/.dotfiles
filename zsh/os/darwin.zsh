@@ -9,4 +9,5 @@ _keychain_export() {
 }
 _keychain_export LINEAR_API_KEY linear-api-key
 _keychain_export CLAUDE_CODE_OAUTH_TOKEN claude-oauth-token
+_keychain_export TYPESAFE_API_KEY typesafe-api-key
 unfunction _keychain_export
