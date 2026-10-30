@@ -70,6 +70,8 @@ Verdicts for this skill (`fix` is the action verb):
 | `defer` | Has merit but out of scope for this branch — file as a follow-up |
 | `reject` | Contradicts an explicit Decision in `PLAN.md`, or is taste/speculative/incorrect |
 
+A finding that only rewords a comment, header, help line, doc or glossary phrasing is `reject` (taste), unless the text as it stands is wrong in a way that misleads a reader or the next agent: a comment naming behaviour the code doesn't have, a help line with a wrong flag, a misused glossary term. Then it is `fix`, severity low.
+
 Triage per the shared protocol. Table shape for `round-1.md`'s `## Triage`:
 
 ```
@@ -80,7 +82,9 @@ Triage per the shared protocol. Table shape for `round-1.md`'s `## Triage`:
 
 ### Phase 5 — Fix loop
 
-For each `fix` row, in order:
+A finding a test can observe gets a commit of its own. The low-severity `fix` rows no test can observe (names, comments, headers, help lines, docs) go together into one last commit after the rest, `fix(<scope>): review nits (review #1.2, #1.5)`, and share its SHA in the triage table.
+
+For each `fix` row a test can observe, in order, then once for the nits:
 
 1. Make the change.
 2. Stage only the files this fix touches: `git add <paths>` — never `git add -A`.
@@ -114,7 +118,7 @@ Review complete: <N> rounds, <M> fixes (<sha-range>), <K> deferred, <J> rejected
 
 ## Behaviour Constraints
 
-- **One commit per logical fix.** Same discipline as `implement-plan`. Don't batch unrelated fixes; don't split one fix across commits.
+- **One commit per logical fix, the nits in one.** Same discipline as `implement-plan` for bugs: don't batch them, don't split one across commits. Wording-only fixes no test observes share a single `review nits` commit per round.
 - **A fix that edits a test is a test amendment.** The user approves it first, and it lands as its own `test(<scope>): amend …` commit — `check_tests.py` rejects any other test edit on a TDD plan.
 - **Stage explicitly.** `git add <paths>` only — never `git add -A`/`.`. Fixes must not pick up unrelated working-tree state.
 - **Don't amend task commits.** Review fixes are new commits on top of the plan's task commits, not edits to them. Preserves the plan↔commit mapping for PR review.
