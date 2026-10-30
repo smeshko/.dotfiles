@@ -1,6 +1,6 @@
 # Plan: herdr auto-name plugin
 
-Status: draft
+Status: in-progress
 Branch: feature/herdr-auto-name
 Risk: medium
 Epic: none
@@ -75,7 +75,7 @@ Verified against herdr 0.9.5 in this session:
 Task state lives here. Tasks are appended by `scripts/add_task.py` and
 `scripts/add_final_task.py`. Update the checkboxes as work progresses.
 
-- [ ] TASK-001: Naming rules for panes
+- [x] TASK-001: Naming rules for panes
 - [ ] TASK-002: Label ownership rules and state
 - [ ] TASK-003: Auto-name daemon (depends on TASK-001,TASK-002)
 - [ ] TASK-004: Plugin manifest, actions and live demo (depends on TASK-003)
