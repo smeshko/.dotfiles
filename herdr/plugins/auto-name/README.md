@@ -4,12 +4,12 @@ A herdr plugin that names tabs and panes after what they run and keeps the names
 
 ## What it names
 
-- **Agent pane**: the agent's session description (Claude Code's terminal title, spinner removed). A generic or empty title becomes `claude · <folder>`.
-- **Shell pane running a command**: the command without its flags, e.g. `nvim plan.md`, `npm dev`, `python3 http.server`, `build.py`, `ssh prod`.
+- **Agent pane**: the first two words of the agent's session description, lowercased and without filler words: `Sail workflows for this repo` becomes `sail workflows`. A generic or empty title becomes `claude · <folder>`, or just the folder when that is too long.
+- **Shell pane running a command**: the command without its flags, e.g. `nvim plan.md`, `npm dev`, `http.server`, `build.py`, `ssh prod`.
 - **Idle shell**: its folder name, or `~` for home.
 - **Tab**: the name of its first pane in layout order.
 
-Labels are cut to 24 characters.
+Labels keep at most two words and 16 characters (the sidebar shows about 17), cut at a word boundary without `…`.
 
 ## Names set by hand are kept
 

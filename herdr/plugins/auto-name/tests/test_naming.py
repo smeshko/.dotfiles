@@ -4,7 +4,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from naming import command_name, pane_name, truncate  # noqa: E402
+from naming import command_name, pane_name, shorten  # noqa: E402
 
 HOME = os.path.expanduser("~")
 
@@ -17,7 +17,7 @@ def shell(argvs, shell_pid=100, cwd="/src/sail"):
 class AgentPaneTest(unittest.TestCase):
     def test_uses_session_description(self):
         pane = {"agent": "claude", "terminal_title_stripped": "Failed runs analysis", "cwd": "/src/sail"}
-        self.assertEqual(pane_name(pane, None), "Failed runs analysis")
+        self.assertEqual(pane_name(pane, None), "failed runs")
 
     def test_generic_title_falls_back_to_agent_and_folder(self):
         for title in ["", None, "claude", "CLAUDE", "Claude Code"]:
@@ -25,13 +25,25 @@ class AgentPaneTest(unittest.TestCase):
                     "foreground_cwd": "/src/sail", "cwd": "/elsewhere"}
             self.assertEqual(pane_name(pane, None), "claude · sail", title)
 
+    def test_generic_title_in_long_folder_is_folder_only(self):
+        pane = {"agent": "claude", "terminal_title_stripped": "", "cwd": "/src/project-scalpel"}
+        self.assertEqual(pane_name(pane, None), "project-scalpel")
+
     def test_generic_title_uses_cwd_without_foreground_cwd(self):
         pane = {"agent": "codex", "terminal_title_stripped": "", "cwd": "/src/api"}
         self.assertEqual(pane_name(pane, None), "codex · api")
 
-    def test_long_description_truncated(self):
-        pane = {"agent": "claude", "terminal_title_stripped": "A very long session description here"}
-        self.assertEqual(pane_name(pane, None), "A very long session des…")
+    def test_description_keeps_two_words_without_filler(self):
+        cases = [
+            ("Sail workflows for this repo", "sail workflows"),
+            ("Fix the flaky queue", "fix flaky"),
+            ("Herdr-auto-name plan implementation", "herdr-auto-name"),
+            ("Internationalization-everywhere", "internationaliza"),
+            ("The a of", "the a"),  # all filler: keep the words rather than nothing
+        ]
+        for title, want in cases:
+            pane = {"agent": "claude", "terminal_title_stripped": title}
+            self.assertEqual(pane_name(pane, None), want, title)
 
 
 class ShellPaneTest(unittest.TestCase):
@@ -54,6 +66,8 @@ class ShellPaneTest(unittest.TestCase):
     def test_running_command(self):
         pane = {"foreground_cwd": "/src/sail"}
         self.assertEqual(pane_name(pane, shell([["nvim", "plan.md"]])), "nvim plan.md")
+        self.assertEqual(pane_name(pane, shell([["git", "remote", "get-url", "origin"]])), "git remote")
+        self.assertEqual(pane_name(pane, shell([["nvim", "a-very-long-file-name.md"]])), "nvim")
 
     def test_pipeline_named_from_first_process(self):
         pane = {"foreground_cwd": "/src/sail"}
@@ -76,26 +90,29 @@ class CommandNameTest(unittest.TestCase):
             (["pnpm", "run", "dev"], "pnpm dev"),
             (["yarn", "run", "dev"], "yarn dev"),
             (["bun", "run", "dev"], "bun dev"),
-            (["python3", "-m", "http.server"], "python3 http.server"),
+            (["python3", "-m", "http.server"], "http.server"),
             (["python3", "scripts/build.py", "--x"], "build.py"),
             (["node", "dist/index.js"], "index.js"),
             (["ssh", "-p", "22", "prod"], "ssh prod"),
             (["ssh", "-i", "~/.ssh/k", "-o", "A=b", "prod"], "ssh prod"),
             (["make"], "make"),
+            (["git", "remote", "get-url", "origin"], "git remote get-url origin"),
         ]
         for argv, want in cases:
             self.assertEqual(command_name(argv), want, argv)
 
 
-class TruncateTest(unittest.TestCase):
+class ShortenTest(unittest.TestCase):
     def test_short_unchanged(self):
-        self.assertEqual(truncate("nvim plan.md"), "nvim plan.md")
-        self.assertEqual(truncate("x" * 24), "x" * 24)
+        self.assertEqual(shorten("nvim plan.md"), "nvim plan.md")
+        self.assertEqual(shorten("x" * 16), "x" * 16)
 
-    def test_long_cut_to_limit_with_ellipsis(self):
-        out = truncate("x" * 30)
-        self.assertEqual(len(out), 24)
-        self.assertEqual(out, "x" * 23 + "…")
+    def test_at_most_two_words_within_limit(self):
+        self.assertEqual(shorten("one two three"), "one two")
+        self.assertEqual(shorten("project-scalpel review"), "project-scalpel")
+
+    def test_long_word_cut_without_ellipsis(self):
+        self.assertEqual(shorten("x" * 30), "x" * 16)
 
 
 if __name__ == "__main__":

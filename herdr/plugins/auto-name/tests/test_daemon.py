@@ -74,10 +74,10 @@ class DaemonTest(unittest.TestCase):
 
     def test_owned_tab_named_from_first_pane(self):
         self.daemon.tick(100.0)
-        self.assertEqual(self.client.tabs["t1"]["label"], "Fix the queue")
-        self.assertEqual(self.client.panes["p1"]["label"], "Fix the queue")
+        self.assertEqual(self.client.tabs["t1"]["label"], "fix queue")
+        self.assertEqual(self.client.panes["p1"]["label"], "fix queue")
         self.assertEqual(self.client.panes["p2"]["label"], "api")
-        self.assertEqual(self.own.recorded("tab", "t1"), "Fix the queue")
+        self.assertEqual(self.own.recorded("tab", "t1"), "fix queue")
 
     def test_manual_tab_label_untouched_but_its_panes_follow(self):
         self.daemon.tick(100.0)
@@ -92,7 +92,7 @@ class DaemonTest(unittest.TestCase):
         self.daemon.handle({"type": "pane_updated", "pane": dict(self.client.panes["p1"], terminal_title_stripped="Other")})
         self.daemon.tick(110.0)
         self.assertEqual(self.client.tabs["t1"]["label"], "mine")
-        self.assertEqual(self.client.panes["p1"]["label"], "Other")
+        self.assertEqual(self.client.panes["p1"]["label"], "other")
 
     def test_debounce_suppresses_second_rename_within_2s(self):
         self.daemon.tick(100.0)
@@ -100,16 +100,16 @@ class DaemonTest(unittest.TestCase):
         self.daemon.handle({"type": "pane_updated", "pane": dict(self.client.panes["p1"], terminal_title_stripped="Second")})
         self.daemon.tick(101.0)
         self.assertEqual(len(self.client.renames), before)
-        self.assertEqual(self.client.tabs["t1"]["label"], "Fix the queue")
+        self.assertEqual(self.client.tabs["t1"]["label"], "fix queue")
         self.daemon.tick(102.5)  # still dirty, now past the window
-        self.assertEqual(self.client.tabs["t1"]["label"], "Second")
-        self.assertEqual(self.client.panes["p1"]["label"], "Second")
+        self.assertEqual(self.client.tabs["t1"]["label"], "second")
+        self.assertEqual(self.client.panes["p1"]["label"], "second")
 
     def test_no_op_rename_skipped(self):
         self.daemon.tick(100.0)
         before = list(self.client.renames)
         self.daemon.handle({"type": "pane_updated", "pane": self.client.get_pane("p1")})
-        self.daemon.handle({"type": "tab_renamed", "tab_id": "t1", "label": "Fix the queue"})
+        self.daemon.handle({"type": "tab_renamed", "tab_id": "t1", "label": "fix queue"})
         self.daemon.tick(110.0)
         self.assertEqual(self.client.renames, before)
 
@@ -151,7 +151,7 @@ class DaemonTest(unittest.TestCase):
         self.client.fail_renames = True
         self.daemon.handle({"type": "pane_updated", "pane": dict(self.client.panes["p1"], terminal_title_stripped="New")})
         self.daemon.tick(110.0)
-        self.assertEqual(self.own.recorded("tab", "t1"), "Fix the queue")
+        self.assertEqual(self.own.recorded("tab", "t1"), "fix queue")
         self.assertTrue(self.own.owns_tab("t1", self.client.tabs["t1"]["label"]))
 
     def test_resume_reload_takes_label_back(self):
