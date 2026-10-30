@@ -149,6 +149,9 @@ class Daemon:
             self.tabs.setdefault(event["tab_id"], {"tab_id": event["tab_id"]})["label"] = event["label"]
             self.dirty_tabs.add(event["tab_id"])
         elif kind == "tab_closed":
+            # Its panes close with it, without pane_closed events.
+            for pane_id in [p for p, info in self.panes.items() if info.get("tab_id") == event["tab_id"]]:
+                self.drop_pane(pane_id)
             self.tabs.pop(event["tab_id"], None)
             self.dirty_tabs.discard(event["tab_id"])
             self.own.forget("tab", event["tab_id"])
@@ -353,6 +356,7 @@ def run():
 
 
 def start():
+    sys.stdout.flush()  # or buffered output is written again by the forked daemon
     if os.fork():
         return 0
     os.setsid()

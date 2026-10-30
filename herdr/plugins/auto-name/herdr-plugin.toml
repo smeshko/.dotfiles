@@ -1,0 +1,21 @@
+id = "dotfiles.auto-name"
+name = "Auto-name"
+version = "0.1.0"
+min_herdr_version = "0.9.5"
+description = "Name tabs and panes after what they run, leaving names set by hand alone"
+platforms = ["macos", "linux"]
+
+[[startup]]
+command = ["python3", "autoname.py", "start"]
+
+[[actions]]
+id = "restart"
+title = "Restart auto-naming"
+contexts = ["workspace", "tab", "pane"]
+command = ["python3", "autoname.py", "restart"]
+
+[[actions]]
+id = "resume"
+title = "Resume auto-naming"
+contexts = ["tab", "pane"]
+command = ["python3", "autoname.py", "resume"]

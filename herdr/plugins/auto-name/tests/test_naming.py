@@ -59,6 +59,13 @@ class ShellPaneTest(unittest.TestCase):
         pane = {"foreground_cwd": "/src/sail"}
         self.assertEqual(pane_name(pane, shell([["tail", "-f", "log"], ["grep", "err"]])), "tail log")
 
+    def test_group_leader_wins_over_its_short_lived_children(self):
+        procs = {"shell_pid": 1, "foreground_process_group_id": 30, "foreground_processes": [
+            {"pid": 61, "name": "git", "argv": ["git", "remote", "get-url", "origin"]},
+            {"pid": 30, "name": "make", "argv": ["make", "watch"]},
+        ]}
+        self.assertEqual(pane_name({"foreground_cwd": "/src/sail"}, procs), "make watch")
+
 
 class CommandNameTest(unittest.TestCase):
     def test_table(self):

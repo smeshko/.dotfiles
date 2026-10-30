@@ -62,6 +62,9 @@ def pane_name(pane, procs):
         return truncate(title)
     running = [p for p in (procs or {}).get("foreground_processes") or []
                if not is_shell(p, procs.get("shell_pid"))]
+    # The group leader is the job the user started (a pipeline's first command);
+    # other members can be its short-lived children, listed in any order.
+    running.sort(key=lambda p: p.get("pid") != procs.get("foreground_process_group_id"))
     if running and running[0].get("argv"):
         return truncate(command_name(running[0]["argv"]))
     return truncate(folder_name(cwd))

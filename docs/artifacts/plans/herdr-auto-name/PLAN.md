@@ -78,5 +78,5 @@ Task state lives here. Tasks are appended by `scripts/add_task.py` and
 - [x] TASK-001: Naming rules for panes
 - [x] TASK-002: Label ownership rules and state
 - [x] TASK-003: Auto-name daemon (depends on TASK-001,TASK-002)
-- [ ] TASK-004: Plugin manifest, actions and live demo (depends on TASK-003)
+- [x] TASK-004: Plugin manifest, actions and live demo (depends on TASK-003)
 - [ ] TASK-005: Final Validation

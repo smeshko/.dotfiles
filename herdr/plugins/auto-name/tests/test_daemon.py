@@ -129,6 +129,14 @@ class DaemonTest(unittest.TestCase):
         self.assertIsNone(self.own.recorded("pane", "p2"))
         self.assertIsNone(self.own.recorded("tab", "t1"))
 
+    def test_tab_close_forgets_its_panes(self):
+        # herdr sends no pane_closed for the panes of a closed tab.
+        self.daemon.tick(100.0)
+        self.daemon.handle({"type": "tab_closed", "tab_id": "t1"})
+        self.assertIsNone(self.own.recorded("pane", "p1"))
+        self.assertIsNone(self.own.recorded("pane", "p2"))
+        self.assertEqual(self.own.recorded("pane", "p3"), "npm dev")
+
     def test_snapshot_prunes_unknown_ids(self):
         self.own.record("tab", "gone", "x")
         self.own.record("pane", "gone", "y")
