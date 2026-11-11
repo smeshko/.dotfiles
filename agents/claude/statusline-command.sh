@@ -1,6 +1,6 @@
 #!/bin/bash
-# Line 1: Model effort | dir@branch (diff) | session | tokens | $cost | worktree
-# Line 2: 5h | 7d | cache
+# Line 1: Model effort | dir@branch (diff) | tokens | $cost | worktree
+# Line 2: session | wall time (api time) | 7d | cache
 #
 # All data comes from the JSON Claude Code pipes on stdin — effort.level is the
 # live session value (incl. /effort and modelSettings), and rate_limits is
@@ -67,8 +67,8 @@ format_reset_time() {
 # ===== Extract data from JSON (single jq pass) =====
 # Fields are joined with the ASCII unit separator so empty values keep their slot.
 IFS=$'\x1f' read -r model_name cwd size current pct_used total_cost effort_level worktree_name \
-    session_name five_hour_pct five_hour_reset_epoch seven_day_pct seven_day_reset_epoch \
-    cache_observed cache_expires_epoch cache_hit_pct cache_misses <<< "$(
+    session_name seven_day_pct seven_day_reset_epoch \
+    cache_observed cache_expires_epoch cache_hit_pct cache_misses duration_ms api_duration_ms <<< "$(
     echo "$input" | jq -r '
         def pct: if . == null then "" else floor end;
         [
@@ -82,14 +82,14 @@ IFS=$'\x1f' read -r model_name cwd size current pct_used total_cost effort_level
             .worktree.name // "",
             (.session_name // "" | gsub("[\\\\\n\r\t\u001f]"; " ")
                 | if length > 40 then .[:39] + "…" else . end),
-            (.rate_limits.five_hour.used_percentage | pct),
-            .rate_limits.five_hour.resets_at // "",
             (.rate_limits.seven_day.used_percentage | pct),
             .rate_limits.seven_day.resets_at // "",
             (.prompt_cache.caching_observed | if . == null then "" else . end),
             .prompt_cache.expires_at // "",
             (.prompt_cache.hit_ratio | if . == null then "" else (. * 100 | round) end),
-            .prompt_cache.misses // 0
+            .prompt_cache.misses // 0,
+            (.cost.total_duration_ms // 0 | floor),
+            (.cost.total_api_duration_ms // 0 | floor)
         ] | map(tostring) | join("\u001f")'
 )"
 
@@ -133,11 +133,6 @@ if [ -n "$cwd" ]; then
     fi
 fi
 
-# Session name (custom /rename or AI-generated title)
-if [ -n "$session_name" ]; then
-    line1+="${sep}${italic}${fg}${session_name}${reset}"
-fi
-
 # Tokens
 pct_color=$(usage_color "$pct_used")
 line1+="${sep}${orange}${used_tokens}/${total_tokens}${reset} ${dim}(${reset}${pct_color}${pct_used}%${reset}${dim})${reset}"
@@ -151,9 +146,26 @@ if [ -n "$worktree_name" ]; then
 fi
 
 # ============================================================
-# LINE 2: Rate limits + prompt cache
+# LINE 2: Session name + duration + rate limits + prompt cache
 # ============================================================
 line2=""
+
+# Session name (custom /rename or AI-generated title)
+[ -n "$session_name" ] && line2+="${italic}${fg}${session_name}${reset}"
+
+# Session duration: wall clock, then time spent waiting on the model API
+format_duration() {
+    local s=$(( ${1:-0} / 1000 ))
+    if [ "$s" -ge 3600 ]; then printf "%dh %02dm" $(( s / 3600 )) $(( s % 3600 / 60 ))
+    elif [ "$s" -ge 60 ]; then printf "%dm" $(( s / 60 ))
+    else printf "%ds" "$s"
+    fi
+}
+if [ "${duration_ms:-0}" -ge 1000 ] 2>/dev/null; then
+    [ -n "$line2" ] && line2+="${sep}"
+    line2+="${fg}$(format_duration "$duration_ms")${reset}"
+    [ "${api_duration_ms:-0}" -ge 1000 ] 2>/dev/null && line2+=" ${dim}(api $(format_duration "$api_duration_ms"))${reset}"
+fi
 
 # Rate limits (only present for Pro/Max, after the session's first API response)
 append_limit() {
@@ -167,7 +179,6 @@ append_limit() {
     reset_fmt=$(format_reset_time "$reset_epoch" "$style")
     [ -n "$reset_fmt" ] && line2+=" ${dim}@${reset_fmt}${reset}"
 }
-append_limit "5h" "$five_hour_pct" "$five_hour_reset_epoch" time
 append_limit "7d" "$seven_day_pct" "$seven_day_reset_epoch" datetime
 
 # Prompt cache: warm/cold (judged against now, so it stays honest if the line is
