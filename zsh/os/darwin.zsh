@@ -8,6 +8,17 @@ _keychain_export() {
   value=$(security find-generic-password -s "$2" -w 2>/dev/null) && export "$1=$value"
 }
 _keychain_export LINEAR_API_KEY linear-api-key
-_keychain_export CLAUDE_CODE_OAUTH_TOKEN claude-oauth-token
 _keychain_export TYPESAFE_API_KEY typesafe-api-key
 unfunction _keychain_export
+
+# The Claude Code token is handed to sail only. Exported globally it replaces
+# the claude.ai login in every `claude` session, and its user:inference scope
+# switches off Claude in Chrome and the claude.ai connectors.
+sail() {
+  local token
+  if token=$(security find-generic-password -s claude-oauth-token -w 2>/dev/null); then
+    CLAUDE_CODE_OAUTH_TOKEN=$token command sail "$@"
+  else
+    command sail "$@"
+  fi
+}
