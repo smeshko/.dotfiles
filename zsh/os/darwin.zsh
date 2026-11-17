@@ -14,6 +14,9 @@ unfunction _keychain_export
 # The Claude Code token is handed to sail only. Exported globally it replaces
 # the claude.ai login in every `claude` session, and its user:inference scope
 # switches off Claude in Chrome and the claude.ai connectors.
+# The unset drops a copy inherited from a parent that still carries it, such
+# as a herdr server started before this change.
+unset CLAUDE_CODE_OAUTH_TOKEN
 sail() {
   local token
   if token=$(security find-generic-password -s claude-oauth-token -w 2>/dev/null); then
