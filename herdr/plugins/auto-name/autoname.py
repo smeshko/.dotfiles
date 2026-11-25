@@ -23,8 +23,23 @@ import time
 from naming import pane_name
 from ownership import Ownership
 
+def session_state_dir(base, sock):
+    """The state directory for the server behind sock.
+
+    Every herdr server passes the same HERDR_PLUGIN_STATE_DIR, and tab and pane ids
+    repeat across servers. A named session (.../sessions/<name>/herdr.sock) gets
+    base/sessions/<name>, so each server has its own lock, log and labels; the
+    default session keeps base.
+    """
+    session = os.path.dirname(os.path.abspath(sock))
+    if os.path.basename(os.path.dirname(session)) == "sessions":
+        return os.path.join(base, "sessions", os.path.basename(session))
+    return base
+
+
 SOCK = os.environ.get("HERDR_SOCKET_PATH") or os.path.expanduser("~/.config/herdr/herdr.sock")
-STATE_DIR = os.environ.get("HERDR_PLUGIN_STATE_DIR") or os.path.expanduser("~/.local/state/herdr-auto-name")
+STATE_DIR = session_state_dir(
+    os.environ.get("HERDR_PLUGIN_STATE_DIR") or os.path.expanduser("~/.local/state/herdr-auto-name"), SOCK)
 TICK = 1.0
 DEBOUNCE = 2.0
 POLL = 2.0
@@ -267,7 +282,8 @@ def read_events(sock, buf, timeout):
     sock.settimeout(timeout)
     try:
         chunk = sock.recv(65536)
-    except socket.timeout:
+    except (socket.timeout, BlockingIOError):
+        # A zero timeout makes the socket non-blocking; no data then is not a closed connection.
         return [], buf, True
     except OSError:
         return [], buf, False

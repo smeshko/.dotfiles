@@ -1,11 +1,12 @@
 import os
+import socket
 import sys
 import tempfile
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from autoname import Daemon  # noqa: E402
+from autoname import Daemon, read_events, session_state_dir  # noqa: E402
 from ownership import Ownership  # noqa: E402
 
 
@@ -163,6 +164,36 @@ class DaemonTest(unittest.TestCase):
         self.daemon.reload()
         self.daemon.tick(110.0)
         self.assertEqual(self.client.tabs["t2"]["label"], "npm dev")
+
+
+class ReadEventsTest(unittest.TestCase):
+    def setUp(self):
+        self.server, self.client = socket.socketpair()
+        self.addCleanup(self.server.close)
+        self.addCleanup(self.client.close)
+
+    def test_zero_timeout_on_idle_connection_stays_open(self):
+        self.assertEqual(read_events(self.client, b"", 0.0), ([], b"", True))
+
+    def test_timeout_on_idle_connection_stays_open(self):
+        self.assertEqual(read_events(self.client, b"", 0.01), ([], b"", True))
+
+    def test_events_are_parsed_and_partial_line_kept(self):
+        self.server.sendall(b'{"event":"pane.closed","data":{"type":"pane_closed"}}\n{"eve')
+        self.assertEqual(read_events(self.client, b"", 0.0), ([{"type": "pane_closed"}], b'{"eve', True))
+
+    def test_closed_connection_reported(self):
+        self.server.close()
+        self.assertEqual(read_events(self.client, b"", 0.0), ([], b"", False))
+
+
+class SessionStateDirTest(unittest.TestCase):
+    def test_default_session_keeps_base(self):
+        self.assertEqual(session_state_dir("/state", "/home/u/.config/herdr/herdr.sock"), "/state")
+
+    def test_named_session_gets_its_own_directory(self):
+        self.assertEqual(session_state_dir("/state", "/home/u/.config/herdr/sessions/work/herdr.sock"),
+                         "/state/sessions/work")
 
 
 if __name__ == "__main__":

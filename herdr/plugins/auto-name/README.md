@@ -26,7 +26,7 @@ The startup hook runs `autoname.py start`, which detaches one daemon per server.
 
 Linking the plugin mid-session does not run the startup hook. Run **Restart auto-naming** once instead.
 
-State lives in `$HERDR_PLUGIN_STATE_DIR` (`~/.local/state/herdr/plugins/dotfiles.auto-name/`):
+State lives in `$HERDR_PLUGIN_STATE_DIR` (`~/.local/state/herdr/plugins/dotfiles.auto-name/`). A named session (`herdr --session work`) keeps its own copy under `sessions/work/` there, because every server gets the same directory and tab and pane ids repeat across servers:
 
 - `daemon.log`: one line per rename and per error
 - `labels.json`: the labels the plugin set, by tab and pane id
